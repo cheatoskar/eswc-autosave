@@ -16,9 +16,15 @@
 // "Save replay" (solo loop FUN_006eb540, menu result 0x12) calls the same SaveReplay with the
 // current replay app+0x144. After a solo finish the race class calls FUN_006c5060 (vtable slot
 // after OnFinishLine), which stops that recording (vtable+0x8c). We save app+0x144 right after it.
+//
+// TMX copy (TmxCopy=1): after a LAN/online save, a worker thread re-reads the file the game wrote
+// and, if it holds more than one ghost, writes "<name> TMX.Replay.Gbx" with only the local
+// player's ghost (see tmxcopy.cpp). The game thread only starts the thread.
 #include "autosave.h"
 
 #include <windows.h>
+#include <errno.h>
+#include <process.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,9 +33,12 @@
 #include "log.h"
 #include "online.h"
 #include "sha256.h"
+#include "tmxcopy.h"
 
 namespace autosave {
 namespace {
+
+constexpr char kVersion[] = "1.1.0";
 
 // ---------------------------------------------------------------- build ---------------------
 constexpr char kExeSha256[] = "983bd12724739dcb0f876aeb3a4259154b068940f5167f57ede750ca452d8068";
@@ -116,6 +125,7 @@ struct Config {
     UINT testKey = VK_F9; // 0 = off
     bool scanReplays = true;
     bool onlineFix = true;
+    bool tmxCopy = true;
 } g_cfg;
 
 void loadConfig() {
@@ -134,9 +144,10 @@ void loadConfig() {
     g_cfg.testKey = static_cast<UINT>(wcstoul(key, nullptr, 0)) & 0xff;
     g_cfg.scanReplays = GetPrivateProfileIntW(L"autosave", L"ScanReplays", 1, path) != 0;
     g_cfg.onlineFix = GetPrivateProfileIntW(L"online", L"OnlineFix", 1, path) != 0;
-    AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d OnlineFix=%d",
+    g_cfg.tmxCopy = GetPrivateProfileIntW(L"autosave", L"TmxCopy", 1, path) != 0;
+    AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d TmxCopy=%d OnlineFix=%d",
            exists ? "eswc_autosave.ini" : "no ini, defaults", g_cfg.enabled, g_cfg.bestOnly ? "best" : "all", g_cfg.testKey,
-           g_cfg.scanReplays, g_cfg.onlineFix);
+           g_cfg.scanReplays, g_cfg.tmxCopy, g_cfg.onlineFix);
 }
 
 // ---------------------------------------------------------------- build check ---------------
@@ -303,10 +314,11 @@ void saveReplaySeh(void* app, void* replay, bool solo, SaveResult* r) {
         initString(filtered);
         const FnExists exists = fn<FnExists>(kFileExists);
         bool found = false;
+        wchar_t stem[260];
+        swprintf_s(stem, L"%s%s", base, suffix);
         for (int attempt = 1; attempt <= 20 && !found; attempt++) {
             wchar_t full[360];
-            if (attempt == 1) swprintf_s(full, L"%s%s.Replay.Gbx", base, suffix);
-            else swprintf_s(full, L"%s%s (%d).Replay.Gbx", base, suffix, attempt);
+            tmxcopy::replayFileName(full, 360, stem, attempt); // "<stem>.Replay.Gbx" / "<stem> (n).Replay.Gbx"
             setString(raw, full);
             fn<FnFilter>(kFilterFileName)(&filtered, &raw, 0, 0);
             if (!exists(&filtered, folder)) found = true; // the game would ask "Overwrite?"; we never overwrite
@@ -388,7 +400,64 @@ void checkHeader(const wchar_t* path, char* out, size_t cap) {
                 xml ? "ok" : "MISSING", ver, bestMs, v, (gbx && xml && v == '1') ? "" : "  <-- WARNING");
 }
 
-void saveNow(void* replay, bool solo, const char* reason) {
+// ---------------------------------------------------------------- TMX copy ------------------
+// Runs in its own thread after the game's save has returned, so the game never waits for it.
+// It only reads the saved file and writes a new one next to it; no game memory is touched.
+struct TmxJob {
+    wchar_t path[620];
+    int localTime; // local player's finish time that triggered the save, -1 = unknown (test key)
+};
+
+unsigned __stdcall tmxThread(void* arg) {
+    TmxJob* job = static_cast<TmxJob*>(arg);
+    tmxcopy::Report r;
+    tmxcopy::makeCopy(job->path, nullptr, nullptr, job->localTime, &r);
+    char path[2100];
+    switch (r.status) {
+    case tmxcopy::Status::Converted:
+        toUtf8(r.outPath, path, sizeof(path));
+        AS_LOG("[TMX] SAVED: %s ghosts %u->1 time=%d validable=%d  (EventsDuration=%u, kept ghost #%d, numNodes %u->%u, "
+               "took %.1f ms off the game thread)",
+               path, r.ghostsBefore, r.time, r.validable, r.eventsDuration, r.keptIndex, r.nodesBefore, r.nodesAfter,
+               r.ms);
+        break;
+    case tmxcopy::Status::NotNeeded:
+        AS_LOG("[TMX] not needed: %s", r.reason);
+        break;
+    case tmxcopy::Status::Refused:
+        AS_LOG("[TMX] skipped: %s", r.reason);
+        break;
+    default:
+        AS_LOG("[TMX] ERROR: %s", r.reason);
+        break;
+    }
+    free(job);
+    return 0;
+}
+
+void startTmxCopy(const wchar_t* path, int localTime) {
+    TmxJob* job = static_cast<TmxJob*>(malloc(sizeof(TmxJob)));
+    if (!job) return;
+    if (wcslen(path) >= _countof(job->path)) {
+        AS_LOG("[TMX] skipped: path too long");
+        free(job);
+        return;
+    }
+    wcscpy_s(job->path, path);
+    job->localTime = localTime;
+    const uintptr_t h = _beginthreadex(nullptr, 256 * 1024, tmxThread, job, 0, nullptr);
+    if (!h) {
+        AS_LOG("[TMX] ERROR: could not start the worker thread (errno %d)", errno);
+        free(job);
+        return;
+    }
+    SetThreadPriority(reinterpret_cast<HANDLE>(h), THREAD_PRIORITY_BELOW_NORMAL);
+    CloseHandle(reinterpret_cast<HANDLE>(h));
+}
+
+// localTime: the local player's finish time that led to this save (-1 = unknown); the TMX copy
+// keeps only a ghost with exactly this time.
+void saveNow(void* replay, bool solo, const char* reason, int localTime) {
     const char* mode = solo ? "Solo" : "LAN";
     if (g_saving) return;
     if (!g_app) {
@@ -414,6 +483,7 @@ void saveNow(void* replay, bool solo, const char* reason) {
         char hdr[200];
         checkHeader(full, hdr, sizeof(hdr));
         AS_LOG("[%s] %s", mode, hdr);
+        if (!solo && g_cfg.tmxCopy) startTmxCopy(full, localTime); // network race: maybe several ghosts
     } else if (r.ok == 0) {
         AS_LOG("[%s] ERROR (%s): %s  [%s]", mode, reason, r.why, name);
     } else {
@@ -463,9 +533,9 @@ void __fastcall finishDetour(void* race, void* edx, void* player) {
             return;
         }
         if (g_copyCounter != copiesBefore) {
-            saveNow(g_lastCopy, false, "finish"); // the game made the copy during the finish already
+            saveNow(g_lastCopy, false, "finish", static_cast<int>(time)); // the game made the copy during the finish already
         } else if (g_soloEndCounter != soloBefore) {
-            saveNow(g_lastSoloReplay, true, "finish");
+            saveNow(g_lastSoloReplay, true, "finish", static_cast<int>(time));
         } else {
             g_armed = true;
             g_armedRace = race;
@@ -508,7 +578,7 @@ void __fastcall keepCopyDetour(void* race, void* edx) {
     if (g_armed && g_finishDepth == 0 && g_armedRace == race) {
         g_armed = false;
         AS_LOG("[LAN] previous replay updated after the finish (time=%u), saving", g_armedTime);
-        saveNow(after, false, "finish");
+        saveNow(after, false, "finish", static_cast<int>(g_armedTime));
     }
 }
 
@@ -530,7 +600,7 @@ void __fastcall soloEndDetour(void* race, void* edx) {
     if (g_armed && g_finishDepth == 0 && g_armedRace == race) {
         g_armed = false;
         AS_LOG("[Solo] race end after the finish (time=%u), saving the race replay", g_armedTime);
-        saveNow(replay, true, "finish");
+        saveNow(replay, true, "finish", static_cast<int>(g_armedTime));
     }
 }
 
@@ -555,7 +625,7 @@ LRESULT CALLBACK getMsgProc(int code, WPARAM wParam, LPARAM lParam) {
                     replay = nullptr;
                 }
             }
-            saveNow(replay, solo, "test key");
+            saveNow(replay, solo, "test key", -1);
         }
     }
     return CallNextHookEx(g_msgHook, code, wParam, lParam);
@@ -569,7 +639,7 @@ void initOnce() {
     g_done = true;
     g_base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     g_mainThread = GetCurrentThreadId();
-    AS_LOG("---- eswc_autosave start (thread %lu) ----", g_mainThread);
+    AS_LOG("---- eswc_autosave %s start (thread %lu) ----", kVersion, g_mainThread);
     if (!checkBuild()) return;
     loadConfig();
     if (g_cfg.onlineFix) onlineFixInstall(g_base);
