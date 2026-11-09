@@ -1,0 +1,63 @@
+# eswc-autosave
+
+Automatic replay saving (and a fix for the online login) for **TrackMania Nations ESWC**.
+
+Drop two files next to the game exe and every finish is saved as a normal, validable `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
+
+## Requirements
+
+This only works with one specific exe:
+
+- **TrackMania Nations ESWC 1.80, unofficial community patch (2021)**, the StarForce-free `TmNationsESWC.exe`
+- SHA-256 `983bd12724739dcb0f876aeb3a4259154b068940f5167f57ede750ca452d8068` (in-game version 0.1.7.9)
+
+With any other exe the DLL does nothing except pass DirectInput through, and says so in its log.
+
+## Install
+
+1. Close the game.
+2. Download the zip from [Releases](../../releases) and copy `dinput8.dll` and `eswc_autosave.ini` next to `TmNationsESWC.exe`.
+3. Start the game. `eswc_autosave.log` appears in the game folder and should contain `recognised, sha256 ok` and `ready: …`.
+
+To remove it, delete `dinput8.dll` (and the ini/log).
+
+## What it does
+
+| Mode | What gets saved |
+|---|---|
+| Solo (campaign, single tracks) | the race you just finished, like "Save replay" on the end screen |
+| LAN / online server | your previous run, like Esc → "Save previous replay" |
+
+Replays go to `GameData\Tracks\Replays\My Replays\` as `<Track>(mm'ss''cc).Replay.Gbx`. Existing files are never overwritten (you get `… (2).Replay.Gbx` instead). Every save is logged with `[Solo]` or `[LAN]` plus a header check (`validable=1`).
+
+### Online fix
+
+Clicking "Internet" in ESWC on Windows 10/11 fails with error **12157**. The login server is still up, but it only speaks TLS 1.0 and its certificate expired in 2020, and Windows no longer allows TLS 1.0 by default. With `OnlineFix=1` the DLL allows TLS 1.0 and skips the revocation check **for the game process only**. Nothing system-wide changes, and requests and servers stay the same.
+
+The connection is weak by today's standards, so use a password for your ESWC account that you don't use anywhere else.
+
+## Settings (`eswc_autosave.ini`)
+
+| Key | Default | |
+|---|---|---|
+| `Enabled` | `1` | autosave on/off |
+| `Mode` | `best` | `best` = only new personal bests on the track (since game start), `all` = every finish |
+| `TestKey` | `0x78` (F9) | save right now, `0` = off |
+| `ScanReplays` | `1` | refresh the in-game replay list after saving |
+| `OnlineFix` | `1` | online login fix on/off |
+
+## Status
+
+Tested on Windows 11: solo campaign, LAN with nostalgic-completionist, and the online login. Not covered: hotseat/split-screen modes.
+
+## How it works
+
+It's a `dinput8.dll` proxy. When the game creates DirectInput, it checks the exe hash and installs a few small hooks: the finish line, the moment the game stops recording and keeps a copy of the run (LAN), and the solo race end. After a finish it calls the game's own synchronous save routine on the game thread, i.e. the same steps "Save replay" does after you press OK. Addresses are documented in `src/autosave.cpp`.
+
+## Build
+
+`build.cmd` (MSVC Build Tools, x86). `test\run_harness.cmd` loads the DLL into a small test program (proxy and build detection only).
+
+## License
+
+MIT
