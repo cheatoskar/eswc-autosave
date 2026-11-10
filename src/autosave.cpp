@@ -17,7 +17,7 @@
 // current replay app+0x144. After a solo finish the race class calls FUN_006c5060 (vtable slot
 // after OnFinishLine), which stops that recording (vtable+0x8c). We save app+0x144 right after it.
 //
-// TMX copy (TmxCopy=1): after a LAN/online save, a worker thread re-reads the file the game wrote
+// TMX copy (only in builds with ESWC_TMXCOPY, TmxCopy=1): after a LAN/online save, a worker thread re-reads the file the game wrote
 // and, if it holds more than one ghost, writes "<name> TMX.Replay.Gbx" with only the local
 // player's ghost (see tmxcopy.cpp). The game thread only starts the thread.
 #include "autosave.h"
@@ -33,12 +33,18 @@
 #include "log.h"
 #include "online.h"
 #include "sha256.h"
+#ifdef ESWC_TMXCOPY
 #include "tmxcopy.h"
+#endif
 
 namespace autosave {
 namespace {
 
-constexpr char kVersion[] = "1.2.0";
+#ifdef ESWC_TMXCOPY
+constexpr char kVersion[] = "1.0.1+tmxcopy";
+#else
+constexpr char kVersion[] = "1.0.1";
+#endif
 
 // ---------------------------------------------------------------- build ---------------------
 constexpr char kExeSha256[] = "983bd12724739dcb0f876aeb3a4259154b068940f5167f57ede750ca452d8068";
@@ -144,10 +150,17 @@ void loadConfig() {
     g_cfg.testKey = static_cast<UINT>(wcstoul(key, nullptr, 0)) & 0xff;
     g_cfg.scanReplays = GetPrivateProfileIntW(L"autosave", L"ScanReplays", 1, path) != 0;
     g_cfg.onlineFix = GetPrivateProfileIntW(L"online", L"OnlineFix", 1, path) != 0;
+#ifdef ESWC_TMXCOPY
     g_cfg.tmxCopy = GetPrivateProfileIntW(L"autosave", L"TmxCopy", 1, path) != 0;
     AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d TmxCopy=%d OnlineFix=%d",
            exists ? "eswc_autosave.ini" : "no ini, defaults", g_cfg.enabled, g_cfg.bestOnly ? "best" : "all", g_cfg.testKey,
            g_cfg.scanReplays, g_cfg.tmxCopy, g_cfg.onlineFix);
+#else
+    g_cfg.tmxCopy = false;
+    AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d OnlineFix=%d (no TMX copy in this build)",
+           exists ? "eswc_autosave.ini" : "no ini, defaults", g_cfg.enabled, g_cfg.bestOnly ? "best" : "all", g_cfg.testKey,
+           g_cfg.scanReplays, g_cfg.onlineFix);
+#endif
 }
 
 // ---------------------------------------------------------------- build check ---------------
@@ -318,7 +331,9 @@ void saveReplaySeh(void* app, void* replay, bool solo, SaveResult* r) {
         swprintf_s(stem, L"%s%s", base, suffix);
         for (int attempt = 1; attempt <= 20 && !found; attempt++) {
             wchar_t full[360];
-            tmxcopy::replayFileName(full, 360, stem, attempt); // "<stem>.Replay.Gbx" / "<stem> (n).Replay.Gbx"
+            // "<stem>.Replay.Gbx" / "<stem> (n).Replay.Gbx"
+            if (attempt <= 1) swprintf_s(full, L"%s.Replay.Gbx", stem);
+            else swprintf_s(full, L"%s (%d).Replay.Gbx", stem, attempt);
             setString(raw, full);
             fn<FnFilter>(kFilterFileName)(&filtered, &raw, 0, 0);
             if (!exists(&filtered, folder)) found = true; // the game would ask "Overwrite?"; we never overwrite
@@ -401,6 +416,8 @@ void checkHeader(const wchar_t* path, char* out, size_t cap) {
 }
 
 // ---------------------------------------------------------------- TMX copy ------------------
+// Only in builds with ESWC_TMXCOPY ("build.cmd tmx"); release builds do not contain it.
+#ifdef ESWC_TMXCOPY
 // Runs in its own thread after the game's save has returned, so the game never waits for it.
 // It only reads the saved file and writes a new one next to it; no game memory is touched.
 struct TmxJob {
@@ -454,6 +471,7 @@ void startTmxCopy(const wchar_t* path, int localTime) {
     SetThreadPriority(reinterpret_cast<HANDLE>(h), THREAD_PRIORITY_BELOW_NORMAL);
     CloseHandle(reinterpret_cast<HANDLE>(h));
 }
+#endif
 
 // localTime: the local player's finish time that led to this save (-1 = unknown); the TMX copy
 // keeps only a ghost with exactly this time.
@@ -483,7 +501,11 @@ void saveNow(void* replay, bool solo, const char* reason, int localTime) {
         char hdr[200];
         checkHeader(full, hdr, sizeof(hdr));
         AS_LOG("[%s] %s", mode, hdr);
+#ifdef ESWC_TMXCOPY
         if (!solo && g_cfg.tmxCopy) startTmxCopy(full, localTime); // network race: maybe several ghosts
+#else
+        (void)localTime;
+#endif
     } else if (r.ok == 0) {
         AS_LOG("[%s] ERROR (%s): %s  [%s]", mode, reason, r.why, name);
     } else {
