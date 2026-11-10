@@ -2,7 +2,8 @@
 
 namespace autosave {
 
-// Called once from the proxied DirectInput8Create (game main thread, no loader lock):
+// Called once via EswcAutosaveInit, which the dinput8.dll loader calls from the game's first
+// DirectInput8Create (game main thread, no loader lock):
 // checks the exe build, reads the ini, installs the hooks.
 void initOnce();
 
