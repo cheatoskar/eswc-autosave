@@ -13,7 +13,7 @@
 // Fix, only inside this process and only these two things:
 //  1. When WinINet reads the DWORD "SecureProtocols", TLS 1.0 (0x80) is added. Nothing else changes,
 //     the registry itself is untouched.
-//  2. The game's HttpOpenRequestA (import slot 0x00aca340) additionally sets
+//  2. The game's HttpOpenRequestA (import slot 0x00aca340; TM Original: 0x00a162d4) additionally sets
 //     SECURITY_FLAG_IGNORE_REVOCATION on HTTPS requests; the game already ignores name and date of
 //     the certificate, and the revocation check of that expired certificate fails (12057), which
 //     the game's retry does not handle.
@@ -30,7 +30,6 @@ namespace autosave {
 namespace {
 
 constexpr uintptr_t kPreferredBase = 0x00400000;
-constexpr uintptr_t kIatHttpOpenRequestA = 0x00aca340;
 constexpr DWORD kTls10Client = 0x80; // SP_PROT_TLS1_0_CLIENT as used by "SecureProtocols"
 
 using FnRegQuery = LSTATUS(WINAPI*)(HKEY, LPCWSTR, LPDWORD, LPDWORD, LPBYTE, LPDWORD);
@@ -104,8 +103,8 @@ bool hookRegQuery() {
     return true;
 }
 
-bool hookOpenRequest(uintptr_t exeBase) {
-    void** slot = reinterpret_cast<void**>(exeBase - kPreferredBase + kIatHttpOpenRequestA);
+bool hookOpenRequest(uintptr_t exeBase, uintptr_t iatSlot) {
+    void** slot = reinterpret_cast<void**>(exeBase - kPreferredBase + iatSlot);
     HMODULE wi = GetModuleHandleW(L"wininet.dll");
     void* real = wi ? reinterpret_cast<void*>(GetProcAddress(wi, "HttpOpenRequestA")) : nullptr;
     if (!real || *slot != real) {
@@ -122,9 +121,9 @@ bool hookOpenRequest(uintptr_t exeBase) {
 
 } // namespace
 
-void onlineFixInstall(uintptr_t exeBase) {
+void onlineFixInstall(uintptr_t exeBase, uintptr_t iatSlot) {
     const bool a = hookRegQuery();
-    const bool b = a && hookOpenRequest(exeBase);
+    const bool b = a && hookOpenRequest(exeBase, iatSlot);
     if (a && b) AS_LOG("online: fix active (TLS 1.0 for WinINet in this process, no revocation check on HTTPS)");
     else AS_LOG("online: fix NOT active");
 }

@@ -1,4 +1,5 @@
 // Auto "Save previous replay" for TrackMania Nations ESWC (unofficial 1.80 patch, exe 0.1.7.9).
+// TrackMania Sunrise and TrackMania Original (solo only) live in legacy.cpp; initOnce picks by exe.
 //
 // What the game does when the player picks "Save previous replay" in the in-game menu
 // (network loop FUN_0073cf10, menu result 0x30): CGameCtnApp::SaveReplay (FUN_0070b2c0) with the
@@ -30,6 +31,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "games.h"
+#include "header.h"
+#include "hook.h"
+#include "legacy.h"
 #include "log.h"
 #include "online.h"
 #include "sha256.h"
@@ -38,12 +43,15 @@
 namespace autosave {
 namespace {
 
-constexpr char kVersion[] = "1.1.0";
+constexpr char kVersion[] = "1.2.0";
 
 // ---------------------------------------------------------------- build ---------------------
-constexpr char kExeSha256[] = "983bd12724739dcb0f876aeb3a4259154b068940f5167f57ede750ca452d8068";
-constexpr DWORD kExeTimestamp = 0x5ce7272f;
+// The exe is identified in games.h (ESWC, Sunrise, Original: size, PE timestamp, SHA-256).
 constexpr uintptr_t kPreferredBase = 0x00400000;
+// HttpOpenRequestA import slots for the online fix (ESWC: see online.cpp; Original: the exe's import
+// table, called once at 0x00485961). Sunrise: no fix (its login problem is not known, nothing added).
+constexpr uintptr_t kEswcIatHttpOpenRequestA = 0x00aca340;
+constexpr uintptr_t kOriginalIatHttpOpenRequestA = 0x00a162d4;
 
 // Functions (link addresses, the exe has no relocations/ASLR, rebased anyway).
 constexpr uintptr_t kOnFinishLine = 0x006d9f50;   // void CTrackManiaRace::OnFinishLine(CTrackManiaPlayer*)  ret 4
@@ -151,59 +159,33 @@ void loadConfig() {
 }
 
 // ---------------------------------------------------------------- build check ---------------
-bool checkBuild() {
+// Size, PE timestamp and SHA-256 of the running exe against games.h. nullptr = unknown, mod off.
+const ExeId* identifyBuild() {
     wchar_t path[MAX_PATH];
     DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    if (n == 0 || n >= MAX_PATH) return false;
+    if (n == 0 || n >= MAX_PATH) return nullptr;
     const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(g_base);
     const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS32*>(g_base + dos->e_lfanew);
     const DWORD stamp = nt->FileHeader.TimeDateStamp;
+    WIN32_FILE_ATTRIBUTE_DATA fa = {};
+    const uint64_t size = GetFileAttributesExW(path, GetFileExInfoStandard, &fa)
+                              ? (static_cast<uint64_t>(fa.nFileSizeHigh) << 32) | fa.nFileSizeLow
+                              : 0;
     char hash[65] = "";
     if (!sha256File(path, hash)) {
         AS_LOG("build: could not hash the exe (error %lu), autosave off", GetLastError());
-        return false;
+        return nullptr;
     }
     char narrow[MAX_PATH * 2];
     WideCharToMultiByte(CP_UTF8, 0, path, -1, narrow, sizeof(narrow), nullptr, nullptr);
-    if (strcmp(hash, kExeSha256) != 0 || stamp != kExeTimestamp) {
-        AS_LOG("build: UNKNOWN exe %s (sha256 %s, timestamp %08lX), autosave off", narrow, hash, stamp);
-        return false;
+    const ExeId* id = identifyExe(hash, stamp, size);
+    if (!id) {
+        AS_LOG("build: UNKNOWN exe %s (sha256 %s, timestamp %08lX, size %llu), autosave off", narrow, hash, stamp,
+               static_cast<unsigned long long>(size));
+        return nullptr;
     }
-    AS_LOG("build: TmNationsESWC 0.1.7.9 (unofficial 1.80 patch) recognised, sha256 ok, base %08X", (unsigned)g_base);
-    return true;
-}
-
-// ---------------------------------------------------------------- inline hooks --------------
-struct InlineHook {
-    uintptr_t link;
-    unsigned char prologue[8];
-    size_t length; // whole instructions, >= 5, no relative operands
-    const char* name;
-    void* trampoline;
-};
-
-bool installHook(InlineHook& h, void* detour) {
-    BYTE* target = reinterpret_cast<BYTE*>(rebase(h.link));
-    if (memcmp(target, h.prologue, h.length) != 0) {
-        AS_LOG("hook: %s at %08X does not match, not hooked", h.name, (unsigned)h.link);
-        return false;
-    }
-    BYTE* tramp = static_cast<BYTE*>(VirtualAlloc(nullptr, 32, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
-    if (!tramp) return false;
-    memcpy(tramp, target, h.length);
-    tramp[h.length] = 0xE9;
-    *reinterpret_cast<int32_t*>(tramp + h.length + 1) = static_cast<int32_t>((target + h.length) - (tramp + h.length + 5));
-    FlushInstructionCache(GetCurrentProcess(), tramp, 32);
-    DWORD old = 0;
-    if (!VirtualProtect(target, h.length, PAGE_EXECUTE_READWRITE, &old)) return false;
-    target[0] = 0xE9;
-    *reinterpret_cast<int32_t*>(target + 1) = static_cast<int32_t>(static_cast<BYTE*>(detour) - (target + 5));
-    for (size_t i = 5; i < h.length; i++) target[i] = 0x90;
-    VirtualProtect(target, h.length, old, &old);
-    FlushInstructionCache(GetCurrentProcess(), target, h.length);
-    h.trampoline = tramp;
-    AS_LOG("hook: %s at %08X installed", h.name, (unsigned)h.link);
-    return true;
+    AS_LOG("build: %s recognised (size, timestamp, sha256 ok), base %08X", id->name, (unsigned)g_base);
+    return id;
 }
 
 InlineHook g_finishHook = {kOnFinishLine, {0x8b, 0x44, 0x24, 0x04, 0x83, 0xec, 0x1c}, 7, "CTrackManiaRace::OnFinishLine", nullptr};
@@ -370,38 +352,6 @@ void saveReplaySeh(void* app, void* replay, bool solo, SaveResult* r) {
     }
 }
 
-// Reads the header the game wrote (the XML chunk) and reports what matters for validation.
-void checkHeader(const wchar_t* path, char* out, size_t cap) {
-    out[0] = 0;
-    HANDLE f = CreateFileW(path, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
-    if (f == INVALID_HANDLE_VALUE) {
-        _snprintf_s(out, cap, _TRUNCATE, "header: file not readable (%lu)", GetLastError());
-        return;
-    }
-    static char buf[16384];
-    DWORD got = 0;
-    ReadFile(f, buf, sizeof(buf) - 1, &got, nullptr);
-    CloseHandle(f);
-    buf[got] = 0;
-    for (DWORD i = 0; i < got; i++)
-        if (!buf[i]) buf[i] = ' ';
-    const bool gbx = got > 3 && memcmp(buf, "GBX", 3) == 0;
-    const char* xml = strstr(buf, "<header type=\"replay\"");
-    const char* val = strstr(buf, "validable=\"");
-    const char* best = strstr(buf, "best=\"");
-    const char* exever = strstr(buf, "exever=\"");
-    const char v = val ? val[11] : '?';
-    const int bestMs = best ? atoi(best + 6) : -1;
-    char ver[16] = "?";
-    if (exever) {
-        size_t k = 0;
-        for (const char* p = exever + 8; *p && *p != '"' && k < sizeof(ver) - 1; p++) ver[k++] = *p;
-        ver[k] = 0;
-    }
-    _snprintf_s(out, cap, _TRUNCATE, "header: %s, xml %s, exever=%s, best=%d, validable=%c%s", gbx ? "GBX" : "NOT GBX",
-                xml ? "ok" : "MISSING", ver, bestMs, v, (gbx && xml && v == '1') ? "" : "  <-- WARNING");
-}
-
 // ---------------------------------------------------------------- TMX copy ------------------
 // Runs in its own thread after the game's save has returned, so the game never waits for it.
 // It only reads the saved file and writes a new one next to it; no game memory is touched.
@@ -483,7 +433,7 @@ void saveNow(void* replay, bool solo, const char* reason, int localTime) {
         AS_LOG("[%s] SAVED (%s): %s%s  time=%d  size=%lu bytes  took %lu ms%s", mode, reason, folder, name, r.time,
                have ? fa.nFileSizeLow : 0ul, ms, r.fromFile ? "  (folder of the replay's source file, as the game does)" : "");
         char hdr[200];
-        checkHeader(full, hdr, sizeof(hdr));
+        checkReplayHeader(full, hdr, sizeof(hdr));
         AS_LOG("[%s] %s", mode, hdr);
         if (!solo && g_cfg.tmxCopy) startTmxCopy(full, localTime); // network race: maybe several ghosts
     } else if (r.ok == 0) {
@@ -642,21 +592,41 @@ void initOnce() {
     g_base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     g_mainThread = GetCurrentThreadId();
     AS_LOG("---- eswc_autosave %s start (thread %lu) ----", kVersion, g_mainThread);
-    if (!checkBuild()) return;
+    const ExeId* exe = identifyBuild();
+    if (!exe) return;
     loadConfig();
-    if (g_cfg.onlineFix) onlineFixInstall(g_base);
+    if (exe->game != Game::Eswc) {
+        // Sunrise / Original: solo autosave only (legacy.cpp).
+        if (exe->game == Game::Original) {
+            if (g_cfg.onlineFix) onlineFixInstall(g_base, kOriginalIatHttpOpenRequestA);
+            else AS_LOG("online: OnlineFix=0, nothing changed");
+        } else {
+            AS_LOG("online: no login fix for this game, nothing changed");
+        }
+        if (!g_cfg.enabled) {
+            AS_LOG("autosave disabled in the ini, no hooks");
+            return;
+        }
+        legacy::Config lc;
+        lc.bestOnly = g_cfg.bestOnly;
+        lc.scanReplays = g_cfg.scanReplays;
+        lc.testKey = g_cfg.testKey;
+        legacy::start(*legacyGame(exe->game), g_base, lc, g_mainThread);
+        return;
+    }
+    if (g_cfg.onlineFix) onlineFixInstall(g_base, kEswcIatHttpOpenRequestA);
     else AS_LOG("online: OnlineFix=0, nothing changed");
     if (!g_cfg.enabled) {
         AS_LOG("autosave disabled in the ini, no hooks");
         return;
     }
-    const bool a = installHook(g_finishHook, reinterpret_cast<void*>(&finishDetour));
+    const bool a = installHook(g_finishHook, reinterpret_cast<void*>(&finishDetour), g_base);
     if (!a) {
         AS_LOG("finish hook missing, autosave inactive");
         return;
     }
-    const bool b = installHook(g_keepCopyHook, reinterpret_cast<void*>(&keepCopyDetour));
-    const bool c = installHook(g_soloEndHook, reinterpret_cast<void*>(&soloEndDetour));
+    const bool b = installHook(g_keepCopyHook, reinterpret_cast<void*>(&keepCopyDetour), g_base);
+    const bool c = installHook(g_soloEndHook, reinterpret_cast<void*>(&soloEndDetour), g_base);
     if (g_cfg.testKey) {
         g_msgHook = SetWindowsHookExW(WH_GETMESSAGE, getMsgProc, nullptr, g_mainThread);
         AS_LOG(g_msgHook ? "test key 0x%02X active (saves the previous/last replay now)" : "test key 0x%02X: hook failed",

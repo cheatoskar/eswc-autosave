@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
             printf("no import slot\n");
             return 2;
         }
-        autosave::onlineFixInstall(reinterpret_cast<uintptr_t>(slot) - 0x00aca340 + 0x00400000);
+        autosave::onlineFixInstall(reinterpret_cast<uintptr_t>(slot) - 0x00aca340 + 0x00400000, 0x00aca340);
     }
     HINTERNET s = InternetOpenA("GameBox", 0, nullptr, nullptr, 0);
     HINTERNET c = InternetConnectA(s, "game.trackmanianations.com", 443, nullptr, nullptr, INTERNET_SERVICE_HTTP, 0, 0);

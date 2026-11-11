@@ -1,15 +1,18 @@
 # eswc-autosave
 
-Automatic replay saving (and a fix for the online login) for **TrackMania Nations ESWC**.
+Automatic replay saving (and a fix for the online login) for **TrackMania Nations ESWC**, and since 1.2.0 also for **TrackMania Sunrise** and **TrackMania Original** (solo).
 
-Drop three files next to the game exe and every finish is saved as a normal `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
+Drop three files next to the game exe and every finish is saved as a normal `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. The old games only keep a ghost of your best run in `Autosaves` (not validable); this mod saves the full replay. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
 
 ## Requirements
 
-This only works with one specific exe:
+This only works with these exact exes (file size, PE timestamp and SHA-256 must all match):
 
-- **TrackMania Nations ESWC 1.80, unofficial community patch (2021)**, the StarForce-free `TmNationsESWC.exe`
-- SHA-256 `983bd12724739dcb0f876aeb3a4259154b068940f5167f57ede750ca452d8068` (in-game version 0.1.7.9)
+| Game | Exe | SHA-256 |
+|---|---|---|
+| TrackMania Nations ESWC 1.80, unofficial community patch (2021), StarForce-free, in-game version 0.1.7.9 | `TmNationsESWC.exe`, 8,987,136 bytes | `983bd12724739dcb0f876aeb3a4259154b068940f5167f57ede750ca452d8068` |
+| TrackMania Sunrise, Win10 community repack | `TmSunrise.exe`, 7,904,768 bytes | `e59dfc7eaa5314e85b2b0df6f40ef7ba01a23bd5a9525f84407f5dff301df4fe` |
+| TrackMania Original, "Online Patch v2" exe (2023) | `TMORIGINAL.EXE`, 7,883,264 bytes | `75e129d769f4595ddde54a8ef484162915bc2bf998c1a2139cc963294fe8175e` |
 
 With any other exe the mod does nothing (DirectInput is still passed through), and says so in its log.
 
@@ -24,7 +27,7 @@ With any other exe the mod does nothing (DirectInput is still passed through), a
 ## Install
 
 1. Close the game.
-2. Download the zip from [Releases](../../releases) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to `TmNationsESWC.exe`.
+2. Download the zip from [Releases](../../releases) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to the game exe (`TmNationsESWC.exe`, `TmSunrise.exe` or `TMORIGINAL.EXE`). If the folder already has a `dinput8.dll` from another mod (for example TM Horizon's loader), use that mod's way of adding a second loader instead of overwriting it; with TM Horizon, use its "Autosave & Login-Fix" module instead of this standalone.
 3. Start the game. `eswc_autosave.log` appears in the game folder and should contain `recognised, sha256 ok` and `ready: …`.
 
 Updating from 1.0.0 (one `dinput8.dll` with everything inside): replace `dinput8.dll` and add `eswc_autosave.dll`; the ini stays. Both DLLs must come from the same release, otherwise the log says `loader api … different versions` and the mod stays off.
@@ -37,10 +40,14 @@ To remove it, delete `dinput8.dll` and `eswc_autosave.dll` (and the ini/log). De
 
 | Mode | What gets saved |
 |---|---|
-| Solo (campaign, single tracks) | the race you just finished, like "Save replay" on the end screen |
-| LAN / online server | your previous run, like Esc → "Save previous replay" |
+| Solo (campaign, single tracks), all three games | the race you just finished, like "Save replay" on the end screen |
+| LAN / online server, ESWC only | your previous run, like Esc → "Save previous replay" |
 
-Replays go to `GameData\Tracks\Replays\My Replays\` as `<Track>(mm'ss''cc).Replay.Gbx`. Existing files are never overwritten (you get `… (2).Replay.Gbx` instead). Every save is logged with `[Solo]` or `[LAN]` plus a header check (`validable=1`).
+Replays go to `GameData\Tracks\Replays\My Replays\` as `<Track>(mm'ss''cc).Replay.Gbx` (stunts: `<Track>(score).Replay.Gbx`), the name the game itself suggests. Existing files are never overwritten (you get `… (2).Replay.Gbx` instead). Every save is logged with `[Solo]` or `[LAN]` plus a header check (`validable=1`).
+
+### Sunrise and Original
+
+Solo only: campaign and single tracks (the race classes `1P`, `1PGhosts`, `1PSpecial`). LAN and online races are never saved there, and neither are hot-seat and Crazy mode. With `Mode=best` (the default) a replay is saved only when the run is a new personal best on the map since the game started. The mod calls the game's own save code, the same calls "Save replay" makes after you press OK, so the replay and its `validable` flag are exactly what the game would write. The addresses were found by comparing with the ESWC code and checked twice each (see `src/games.h`, `src/legacy.cpp`); they have not been run in the game yet (status below).
 
 ### TMX copy (servers with other players)
 
@@ -66,6 +73,8 @@ Clicking "Internet" in ESWC on Windows 10/11 fails with error **12157**. The log
 
 The connection is weak by today's standards, so use a password for your ESWC account that you don't use anywhere else.
 
+TrackMania Original (Online Patch v2): the patch's readme asks you to allow TLS 1.0 and to turn off the revocation check in the Windows Internet Options, for the whole system. With `OnlineFix=1` the mod does the same two things for the game process only, at the exe's own `HttpOpenRequestA` import. Sunrise: no online fix (not known to need one, nothing changed).
+
 ## Settings (`eswc_autosave.ini`)
 
 | Key | Default | |
@@ -74,26 +83,29 @@ The connection is weak by today's standards, so use a password for your ESWC acc
 | `Mode` | `best` | `best` = only new personal bests on the track (since game start), `all` = every finish |
 | `TestKey` | `0x78` (F9) | save right now, `0` = off |
 | `ScanReplays` | `1` | refresh the in-game replay list after saving |
-| `TmxCopy` | `1` | write the TMX copy after LAN/online saves |
-| `OnlineFix` | `1` | online login fix on/off |
+| `TmxCopy` | `1` | write the TMX copy after LAN/online saves (ESWC only) |
+| `OnlineFix` | `1` | online login fix on/off (ESWC and Original) |
 
 ## Status
 
-Version 1.1.0. Tested on Windows 11: solo campaign, LAN with nostalgic-completionist, online server and the online login. Not covered: hotseat/split-screen modes.
+Version 1.2.0. ESWC: tested on Windows 11: solo campaign, LAN with nostalgic-completionist, online server and the online login. Not covered: hotseat/split-screen modes.
+
+Sunrise and Original: built and tested against a fake game image (`build\test\legacy_test.exe`: the real prologues, the game's calls as stubs, the hook route of the real DLL) and against the real exes on disk (hash, prologues, addresses); not yet run in the game. Until a first in-game test the log is the place to look: `build: TmSunrise … recognised`, `hook: … installed` (twice), `ready (Sunrise)`, then `[Solo] SAVED (finish): …` after a new best.
 
 ## Changes
 
+- 1.2.0: TrackMania Sunrise (Win10 repack) and TrackMania Original (Online Patch v2 exe): solo autosave; online fix also for Original. The exe is now also checked by its file size.
 - 1.1.0: TMX copy for LAN/online replays.
 - 1.0.1: split into a small loader (`dinput8.dll`) and the mod (`eswc_autosave.dll`). Behaviour unchanged.
 - 1.0.0: first release.
 
 ## How it works
 
-The game loads `dinput8.dll` from its own folder before the system one. The loader in it forwards DirectInput to the system DLL and, the first time the game creates DirectInput (main thread, before any race), loads `eswc_autosave.dll` and calls its `EswcAutosaveInit`. The mod then checks the exe hash and installs a few small hooks: the finish line, the moment the game stops recording and keeps a copy of the run (LAN), and the solo race end. After a finish it calls the game's own synchronous save routine on the game thread, i.e. the same steps "Save replay" does after you press OK. Addresses are documented in `src/autosave.cpp`.
+The game loads `dinput8.dll` from its own folder before the system one. The loader in it forwards DirectInput to the system DLL and, the first time the game creates DirectInput (main thread, before any race), loads `eswc_autosave.dll` and calls its `EswcAutosaveInit`. The mod then checks the exe (size, timestamp, hash) and installs a few small hooks: the finish line, the moment the game stops recording and keeps a copy of the run (LAN, ESWC), and the solo race end. After a finish it calls the game's own synchronous save routine on the game thread, i.e. the same steps "Save replay" does after you press OK. Addresses are documented in `src/autosave.cpp` (ESWC) and `src/games.h` / `src/legacy.cpp` (Sunrise, Original).
 
 ## Build
 
-`build.cmd` (MSVC Build Tools, x86) builds `dist\dinput8.dll` and `dist\eswc_autosave.dll`. `test\run_harness.cmd` loads the loader into a small test program twice: with `eswc_autosave.dll` next to it (DirectInput works, the log reports an unknown exe) and without it (DirectInput works, no log).
+`build.cmd` (MSVC Build Tools, x86) builds `dist\dinput8.dll` and `dist\eswc_autosave.dll`. `build\test\legacy_test.exe` runs the Sunrise/Original autosave against a fake game image (with `legacy_test.exe <exe> sunrise|original|eswc …` it also checks real exes, read only: hash, size, timestamp, hook prologues, address ranges). `test\run_harness.cmd` loads the loader into a small test program twice: with `eswc_autosave.dll` next to it (DirectInput works, the log reports an unknown exe) and without it (DirectInput works, no log).
 
 `build\test\tmxcopy_test.exe <outdir> [--login L] [--time ms] [--ref DIR] <replays…>` runs the TMX-copy conversion of the DLL on replay files and writes the copies to `<outdir>`; the inputs are only read. It prints a summary of input and output (ghosts, times, EventsDuration, validable, mode) and, with `--ref`, compares each copy byte for byte with `<DIR>\<name> solo.Replay.Gbx`. No replays are in the repo (they contain other players' names).
 
