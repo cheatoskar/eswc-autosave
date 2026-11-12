@@ -6,7 +6,8 @@
 //   - keyboard navigation: Down + Space toggles "Autosave", the ini gets Enabled=0, the switch reaches the autosave
 //   - Music / Window mode on a fake Sunrise game in memory (the vendored game-settings table's own signatures and
 //     objects behind its globals): keyboard Left lowers the music in the game's audio port and config and writes
-//     Music= to the ini; the combo sets the game's FullScreen and writes WindowMode=fullscreen
+//     Music= to the ini; the combo runs the game's StartFullscreen (a stand-in) between two frames, the config and
+//     WindowMode=fullscreen follow
 //   - a saved replay shows the toast
 // Writes build\test\menu_test.bmp (menu open) and menu_toast.bmp (toast) next to this exe. Not the game: the
 // controller fix finds no table for this exe and says so; there is no login fix (Sunrise-like).
@@ -139,7 +140,7 @@ struct FakeGame {
     const gs::GameTable* t = &gs::sunriseTable();
     uint8_t* img = nullptr;
     uint8_t app[0x40] = {}, config[0x120] = {}, display[0x40] = {}, mgr[0x40] = {}, engines[0x60] = {}, audioEngine[0x40] = {},
-            port[0x40] = {};
+            port[0x40] = {}, viewport[0x300] = {};
     uint8_t* at(uintptr_t link) { return img + (link - 0x400000); }
     static void put(void* p, uint32_t v) { memcpy(p, &v, 4); }
     static uint32_t ptr(const void* p) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(p)); }
@@ -149,8 +150,8 @@ struct FakeGame {
         return v;
     }
     void build() {
-        img = static_cast<uint8_t*>(VirtualAlloc(nullptr, 0x900000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
-        for (const gs::Part* p : {&t->audio, &t->display}) {
+        img = static_cast<uint8_t*>(VirtualAlloc(nullptr, 0x900000, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE));
+        for (const gs::Part* p : {&t->audio, &t->display, &t->toggle}) {
             for (int i = 0; i < p->codeCount; i++) memcpy(at(p->code[i].addr), p->code[i].bytes, p->code[i].len);
             for (int i = 0; i < p->ptrCount; i++) put(at(p->ptrs[i].addr), static_cast<uint32_t>(p->ptrs[i].value - 0x400000 + ptr(img)));
             for (int i = 0; i < p->paramCount; i++) {
@@ -170,6 +171,14 @@ struct FakeGame {
         put(audioEngine + 0x2c, ptr(port));
         memcpy(port + 0x14, &sound, 4);
         memcpy(port + 0x18, &music, 4);
+        // the viewport with the game's vtable; stand-ins at StartFullscreen / StopFullscreen (before the checked
+        // bytes at +0x18): mov dword [ecx+0x260],1 (0); mov eax,1; ret
+        put(app + t->vpOffset, ptr(viewport));
+        put(viewport, static_cast<uint32_t>(t->vpVtable - 0x400000 + ptr(img)));
+        static const uint8_t kStart[] = {0xc7, 0x81, 0x60, 0x02, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0xb8, 0x01, 0x00, 0x00, 0x00, 0xc3};
+        static const uint8_t kStop[] = {0xc7, 0x81, 0x60, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xc3};
+        memcpy(at(t->toggle.ptrs[0].value), kStart, sizeof(kStart));
+        memcpy(at(t->toggle.ptrs[1].value), kStop, sizeof(kStop));
     }
 };
 
@@ -305,12 +314,14 @@ int wmain() {
     key(VK_DOWN, false);
     key(VK_SPACE, false);
     frames(3);
-    uint32_t fsNow = 7;
+    uint32_t fsNow = 7, fsLive = 7;
     memcpy(&fsNow, fake.display + 0x34, 4);
+    memcpy(&fsLive, fake.viewport + 0x260, 4);
     wchar_t wm[16] = L"";
     GetPrivateProfileStringW(L"display", L"WindowMode", L"", wm, 16, ini);
-    printf("      window mode: FullScreen=%u, ini WindowMode=%ls\n", fsNow, wm);
-    check(fsNow == 1 && wcscmp(wm, L"fullscreen") == 0, "Window mode Fullscreen: the game's setting and the ini");
+    printf("      window mode: viewport fullscreen=%u, config FullScreen=%u, ini WindowMode=%ls\n", fsLive, fsNow, wm);
+    check(fsLive == 1, "Window mode Fullscreen: the game's own StartFullscreen ran (between two frames)");
+    check(fsNow == 1 && wcscmp(wm, L"fullscreen") == 0, "Window mode Fullscreen: the config and the ini follow");
     key(VK_UP, false); // to Sounds for the screenshot
     changed = capture(bmp1, center, &inArea); // keep this one: the menu as the player sees it
 

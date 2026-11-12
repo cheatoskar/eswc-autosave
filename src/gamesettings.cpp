@@ -15,7 +15,8 @@ namespace {
 
 gs::Game* g_game = nullptr;
 gs::MasterVolume* g_master = nullptr;
-int g_windowAtStart = -1; // the mode the game starts in (0/1), -1 unknown
+int g_windowWanted = -1; // the mode asked for in the menu, switched between two frames
+wchar_t g_ini[MAX_PATH] = L"";
 
 void logCb(void*, int level, const char* text) { AS_LOG("%s%s", level == 2 ? "ERROR: " : level == 1 ? "warning: " : "", text); }
 
@@ -82,6 +83,17 @@ void volumeRow(const wchar_t* ini, float scale, const char* label, const char* i
         savePercent(ini, music ? L"Music" : L"Sounds", pct); // kept, and put into the game at every start
 }
 
+// game thread, between two frames (gs::runBetweenFrames)
+void switchWindow(void*) {
+    if (!g_game || g_windowWanted < 0) return;
+    const int mode = g_windowWanted;
+    g_windowWanted = -1;
+    if (!g_game->switchWindowMode(mode == 1)) return; // logged
+    if (!writeSetting(g_ini, L"display", L"WindowMode", mode ? L"fullscreen" : L"windowed"))
+        AS_LOG("menu: could not write WindowMode to the ini (error %lu)", GetLastError());
+    else AS_LOG("menu: WindowMode=%s", mode ? "fullscreen" : "windowed");
+}
+
 } // namespace
 
 void start(uintptr_t exeBase, uint32_t exeTimestamp, const Settings& s, bool apply, bool volume) {
@@ -102,8 +114,7 @@ void start(uintptr_t exeBase, uint32_t exeTimestamp, const Settings& s, bool app
         } else {
             AS_LOG("game settings: the Horizon Client's Game settings module applies its values; ours stay unused");
         }
-        bool fs = false;
-        if (g_game->readFullscreen(&fs)) g_windowAtStart = fs ? 1 : 0;
+        g_game->toggleOk(); // logs the check once
     }
     if (volume) {
         g_master = new gs::MasterVolume();
@@ -125,9 +136,9 @@ void drawRows(const wchar_t* ini, float scale) {
     volumeRow(ini, scale, "Music", "##le-music", true);
     volumeRow(ini, scale, "Sounds", "##le-sounds", false);
 
-    // Window mode: the game's setting, read when it starts
+    // Window mode: the game's own switch, between two frames
     bool fs = false;
-    const bool fsOk = g_game && g_game->readFullscreen(&fs);
+    const bool fsOk = g_game && g_game->fullscreenNow(&fs);
     rowLabel("Window mode", scale);
     if (!fsOk) {
         unavailable();
@@ -135,15 +146,10 @@ void drawRows(const wchar_t* ini, float scale) {
     }
     static const char* kModes[] = {"Windowed", "Fullscreen"};
     int mode = fs ? 1 : 0;
-    if (ImGui::Combo("##le-window", &mode, kModes, 2) && (mode == 1) != fs && g_game->setFullscreen(mode == 1)) {
-        if (!writeSetting(ini, L"display", L"WindowMode", mode ? L"fullscreen" : L"windowed"))
-            AS_LOG("menu: could not write WindowMode to the ini (error %lu)", GetLastError());
-        else AS_LOG("menu: WindowMode=%s (next start)", mode ? "fullscreen" : "windowed");
-    }
-    if (g_windowAtStart >= 0 && mode != g_windowAtStart) {
-        ImGui::Indent(110.0f * scale);
-        ImGui::TextUnformatted("Restart game");
-        ImGui::Unindent(110.0f * scale);
+    if (ImGui::Combo("##le-window", &mode, kModes, 2) && (mode == 1) != fs && g_windowWanted < 0) {
+        wcsncpy_s(g_ini, ini, _TRUNCATE);
+        g_windowWanted = mode;
+        if (!gs::runBetweenFrames(&switchWindow, nullptr)) g_windowWanted = -1;
     }
 }
 

@@ -5,7 +5,7 @@ Small fixes for the old TrackMania games: **TrackMania Nations ESWC**, **TrackMa
 - **Autosave**: every finish is saved as a normal `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. The old games only keep a ghost of your best run in `Autosaves` (not validable); this saves the full replay. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
 - **Controller fix**: a controller plugged in or switched on while the game runs works at once, with the game's own bindings for it. Without it the game only sees controllers that were there at start.
 - **Login fix** (ESWC, Original): the online login works again on Windows 10/11 (error 12157).
-- **Volume, Music, Sounds, Window mode**: change them in the game, like in the launcher's settings. Music and sounds change at once; the window mode applies at the next start.
+- **Volume, Music, Sounds, Window mode**: change them in the game, like in the launcher's settings. Each changes at once.
 - **Menu**: `Ctrl+F2` in the game switches each of these on or off.
 
 Three files next to the game exe, no installer, no other program needed.
@@ -59,7 +59,7 @@ To remove it, delete `dinput8.dll` and `eswc_autosave.dll` (and the ini/log), an
 | Login fix | ESWC and Original; a change takes effect at the next start (`Restart game`) |
 | Volume | the game's volume in Windows (the same slider as the game in the Windows volume mixer) |
 | Music, Sounds | the game's own music and sound volume, heard at once |
-| Window mode | `Windowed` or `Fullscreen`; applies at the next start (`Restart game`) |
+| Window mode | `Windowed` or `Fullscreen`, switched at once |
 | Version, game, menu key | |
 
 Every change is written to `eswc_autosave.ini` at once. A short note in the top right corner shows saved replays and added controllers. The key is `MenuKey` in the ini (`0` = no menu). `Ctrl+F2` because the plain F-keys are taken in these games by other mods (TM Vibrant Shaders: F3, F6, F7, F8, F12; CenterSpeed: F5; this mod's own test key: F9). The key that opened the menu is held back from the game until it is released.
@@ -118,7 +118,7 @@ This is the Horizon Client's login fix, the same code.
 The three games keep music volume, sound volume and fullscreen in their settings file (`Default.SystemConfig.Gbx`, written by the launcher's settings dialog). At start the game reads it, makes the window and Direct3D device from it, and hands the two volumes to its sound code, which uses them for every sound and the music each frame.
 
 - **Music** and **Sounds** change those two values in the running game (the settings and the sound code's copy, as the game's own start does), so you hear the change at once.
-- **Window mode** changes the fullscreen setting. The game has no way to switch while it runs, so it applies at the next start (`Restart game`).
+- **Window mode** uses the game's own switch: the same functions the game calls at start when its settings say fullscreen, and that its (hidden) developer command "ToggleFullscreen" calls while it runs. They keep the window's size and place for the way back, and use the fullscreen resolution of the launcher's settings. The switch runs between two frames, where the game's window procedure runs. The fullscreen setting follows, so the next start uses the same mode.
 - **Volume**: the games have no master volume, so this is the game's volume in Windows (Windows remembers it for the game).
 
 The game never writes these back to its settings file while it runs, so Legacy Essentials keeps your choice in the ini (`[sound]`, `[display]`) and puts it into the game's settings at every start, before the game uses them. Until you change a value in the menu, the game's own value stays. The launcher's settings dialog still shows its own value.
@@ -157,7 +157,7 @@ Install: rename Legacy Essentials' `dinput8.dll` to `dinput8.chain.dll` and put 
 | `[menu]` | `MenuKey` | `Ctrl+F2` | menu key, `0` = no menu |
 | `[sound]` | `Music` | empty | music volume `0`-`100`, empty = the game's own (menu) |
 | | `Sounds` | empty | sound volume `0`-`100`, empty = the game's own (menu) |
-| `[display]` | `WindowMode` | empty | `windowed` or `fullscreen`, empty = the game's own (menu; next start) |
+| `[display]` | `WindowMode` | empty | `windowed` or `fullscreen` at start, empty = the game's own (menu) |
 
 ## Status
 

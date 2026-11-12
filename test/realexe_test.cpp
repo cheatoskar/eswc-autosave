@@ -4,7 +4,7 @@
 //   - the login fix's import slots: ESWC 0x00aca340 and Original 0x00a162d4 are the exe's HttpOpenRequestA slot
 //   - the menu's way in: the exe imports Direct3DCreate9 or GetProcAddress
 //   - the game settings' table: PE timestamp, the code, pointer and reflection-member signatures of the volumes and
-//     of the window mode (gs::Game::audioOk / displayOk)
+//     of the window mode and of the game's own fullscreen switch (gs::Game::audioOk / displayOk / toggleOk)
 // The exe image is laid out at its link address 0x400000 in this process (the exes have no relocations).
 //
 //   realexe_test.exe <exe> eswc|sunrise|original [...]
@@ -99,7 +99,7 @@ static bool runOne(const wchar_t* path, const char* game) {
     if (g) {
         if (at != base) {
             std::set<uintptr_t> moved; // the two parts share some pointers: move each dword once
-            for (const gs::Part* part : {&g->audio, &g->display})
+            for (const gs::Part* part : {&g->audio, &g->display, &g->toggle})
                 for (int i = 0; i < part->ptrCount; i++)
                     if (moved.insert(part->ptrs[i].addr).second)
                         *reinterpret_cast<uint32_t*>(img + (part->ptrs[i].addr - base)) += static_cast<uint32_t>(at - base);
@@ -112,6 +112,9 @@ static bool runOne(const wchar_t* path, const char* game) {
         _snprintf_s(what, _TRUNCATE, "game settings: window-mode signatures match (%d code, %d pointer, %d member)", g->display.codeCount,
                     g->display.ptrCount, g->display.paramCount);
         check(settings.displayOk(), what);
+        _snprintf_s(what, _TRUNCATE, "game settings: live window-mode switch signatures match (%d code, %d vtable slots)", g->toggle.codeCount,
+                    g->toggle.ptrCount);
+        check(settings.toggleOk(), what);
     }
     if (strcmp(game, "eswc") == 0 || strcmp(game, "original") == 0) {
         const DWORD want = strcmp(game, "eswc") == 0 ? 0x00aca340 - 0x400000 : 0x00a162d4 - 0x400000;
