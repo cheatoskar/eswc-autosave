@@ -1,3 +1,5 @@
+<img src="docs/logo/logo.svg" width="96" align="right" alt="Legacy Essentials logo">
+
 # eswc-autosave
 
 Automatic replay saving (and a fix for the online login) for **TrackMania Nations ESWC**.
