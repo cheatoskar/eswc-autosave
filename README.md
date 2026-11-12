@@ -101,7 +101,7 @@ The games look for controllers once, at start. A pad plugged in or switched on l
 
 Before it does anything it checks the game's input code byte for byte (6 code signatures and 5 table entries, plus 15 code signatures of the bindings code). If one differs, the fix stays off (`Unsupported` in the menu, the reason in the log); if only the bindings part differs, the pad is still added and gets its bindings in the game's input settings.
 
-This is the Horizon Client's controller fix (module "Controller fix" 1.2.0), the same code.
+This is the Horizon Client's controller fix (module "Controller fix" 1.2.1), the same code.
 
 ### Login fix (ESWC, Original)
 

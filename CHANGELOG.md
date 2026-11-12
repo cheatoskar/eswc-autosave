@@ -4,7 +4,7 @@
 
 New name: **Legacy Essentials** (formerly eswc-autosave). File names stay (`dinput8.dll`, `eswc_autosave.dll`, `eswc_autosave.ini`), your ini keeps working.
 
-- **Controller fix** (ESWC, Sunrise, Original): a controller plugged in or switched on while the game runs is added at once, with the game's own bindings for it. The Horizon Client's controller fix 1.2.0, the same code. `ControllerFix=1` in the new `[controller]` section.
+- **Controller fix** (ESWC, Sunrise, Original): a controller plugged in or switched on while the game runs is added at once, with the game's own bindings for it. The Horizon Client's controller fix 1.2.1, the same code. `ControllerFix=1` in the new `[controller]` section.
 - **Menu**: `Ctrl+F2` switches Autosave, Best times only, Controller fix and Login fix, opens the replay folder and shows the version. Changes are written to the ini at once. `MenuKey` in the new `[menu]` section.
 - **Volume, Music, Sounds, Window mode** (ESWC, Sunrise, Original) in the menu. Music and Sounds are the game's own volumes and change at once; Volume is the game's volume in Windows; Window mode (Windowed/Fullscreen) is the game's own setting and applies at the next start. Your choice is kept in the new `[sound]` and `[display]` sections and put into the game's settings at every start. The Horizon Client's Game settings module, the same code.
 - A short note in the top right corner when a replay is saved or a controller is added.
