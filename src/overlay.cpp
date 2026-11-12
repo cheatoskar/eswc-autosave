@@ -368,6 +368,10 @@ void applyStyle(float scale) {
     c[ImGuiCol_FrameBgHovered] = ImVec4(0.24f, 0.24f, 0.28f, 1.0f);
     c[ImGuiCol_FrameBgActive] = ImVec4(0.28f, 0.28f, 0.32f, 1.0f);
     c[ImGuiCol_CheckMark] = orange;
+    c[ImGuiCol_SliderGrab] = orange;
+    c[ImGuiCol_SliderGrabActive] = orangeHover;
+    c[ImGuiCol_HeaderActive] = orange;
+    c[ImGuiCol_PopupBg] = ImVec4(0.11f, 0.11f, 0.13f, 0.98f);
     c[ImGuiCol_Button] = ImVec4(0.20f, 0.20f, 0.24f, 1.0f);
     c[ImGuiCol_ButtonHovered] = ImVec4(0.27f, 0.27f, 0.31f, 1.0f);
     c[ImGuiCol_ButtonActive] = orange;

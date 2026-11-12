@@ -95,6 +95,25 @@ bool hotkeyMatches(const Hotkey& k, UINT vk, bool ctrl, bool shift, bool alt) {
     return k.vk && vk == k.vk && ctrl == k.ctrl && shift == k.shift && alt == k.alt;
 }
 
+int parsePercent(const wchar_t* text) {
+    if (!text) return -1;
+    while (*text == L' ') text++;
+    if (*text < L'0' || *text > L'9') return -1;
+    wchar_t* end = nullptr;
+    const unsigned long v = wcstoul(text, &end, 10);
+    while (end && *end == L' ') end++;
+    if (!end || *end) return -1;
+    return v > 100 ? 100 : static_cast<int>(v);
+}
+
+int parseWindowMode(const wchar_t* text) {
+    if (!text) return -1;
+    while (*text == L' ') text++;
+    if (_wcsnicmp(text, L"windowed", 8) == 0) return 0;
+    if (_wcsnicmp(text, L"fullscreen", 10) == 0) return 1;
+    return -1;
+}
+
 void iniPath(wchar_t* out, size_t cap) {
     out[0] = 0;
     wchar_t path[MAX_PATH];
@@ -123,6 +142,13 @@ void loadSettings(const wchar_t* path, Settings* s, bool* existed) {
     GetPrivateProfileStringW(L"menu", L"MenuKey", L"Ctrl+F2", key, 64, path);
     Hotkey k;
     if (parseHotkey(key, &k)) s->menuKey = k; // not understood: the default stays
+    wchar_t v[32] = L"";
+    GetPrivateProfileStringW(L"sound", L"Music", L"", v, 32, path);
+    s->music = parsePercent(v);
+    GetPrivateProfileStringW(L"sound", L"Sounds", L"", v, 32, path);
+    s->sounds = parsePercent(v);
+    GetPrivateProfileStringW(L"display", L"WindowMode", L"", v, 32, path);
+    s->windowMode = parseWindowMode(v);
 }
 
 bool writeSetting(const wchar_t* path, const wchar_t* section, const wchar_t* key, const wchar_t* value) {

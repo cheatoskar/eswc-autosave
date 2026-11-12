@@ -87,6 +87,7 @@ static void ini() {
     check(s.autosave && s.bestOnly && s.testKey == VK_F9 && s.scanReplays && s.tmxCopy && s.onlineFix && s.controllerFix,
           "defaults without an ini");
     check(s.menuKey.vk == VK_F2 && s.menuKey.ctrl, "default menu key Ctrl+F2");
+    check(s.music == -1 && s.sounds == -1 && s.windowMode == -1, "default: the game's own volumes and window mode");
 
     // the 1.2.0 ini (no [controller], no [menu]) keeps its values, new keys get defaults
     const char* old =
@@ -99,6 +100,7 @@ static void ini() {
     check(existed, "ini found");
     check(!s.autosave && !s.bestOnly && s.testKey == 0 && !s.scanReplays && !s.tmxCopy && !s.onlineFix, "1.2.0 ini values");
     check(s.controllerFix && s.menuKey.vk == VK_F2, "1.2.0 ini: new keys default");
+    check(s.music == -1 && s.sounds == -1 && s.windowMode == -1, "1.2.0 ini: game settings untouched");
 
     // write-back from the menu
     check(writeSettingBool(path, L"autosave", L"Enabled", true), "write Enabled");
@@ -124,7 +126,27 @@ static void ini() {
     writeSetting(path, L"autosave", L"Mode", L"sometimes");
     loadSettings(path, &s, &existed);
     check(!s.bestOnly, "Mode=<other> -> all, as 1.2.0");
+    // volumes and window mode, as the menu writes them
+    check(writeSetting(path, L"sound", L"Music", L"35"), "write Music");
+    check(writeSetting(path, L"sound", L"Sounds", L"100"), "write Sounds");
+    check(writeSetting(path, L"display", L"WindowMode", L"fullscreen"), "write WindowMode");
+    loadSettings(path, &s, &existed);
+    check(s.music == 35 && s.sounds == 100 && s.windowMode == 1, "game settings read back");
+    writeSetting(path, L"sound", L"Music", L"");
+    writeSetting(path, L"display", L"WindowMode", L"Windowed");
+    loadSettings(path, &s, &existed);
+    check(s.music == -1 && s.windowMode == 0, "empty Music -> game's own; Windowed (any case)");
     DeleteFileW(path);
+}
+
+static void values() {
+    check(parsePercent(L"0") == 0 && parsePercent(L"100") == 100 && parsePercent(L" 42 ") == 42, "percent: plain numbers");
+    check(parsePercent(L"250") == 100, "percent: above 100 -> 100");
+    check(parsePercent(L"") == -1 && parsePercent(L"game") == -1 && parsePercent(L"-5") == -1 && parsePercent(L"5x") == -1 &&
+              parsePercent(nullptr) == -1,
+          "percent: anything else -> the game's own");
+    check(parseWindowMode(L"windowed") == 0 && parseWindowMode(L"FULLSCREEN") == 1, "window mode: names");
+    check(parseWindowMode(L"") == -1 && parseWindowMode(L"borderless") == -1 && parseWindowMode(nullptr) == -1, "window mode: else -> game's own");
 }
 
 static void plans() {
@@ -135,6 +157,7 @@ static void plans() {
     check(!p.loginFix, "Sunrise: no login fix");
     p = makePlan(none, Stage::Start, true, false, false, false, false);
     check(!p.loginFix && !p.menu && !p.controller && !p.autosave, "standalone, all switched off");
+    check(p.gameSettings, "standalone: game settings ours");
 
     HorizonProbe chained;
     chained.loaderIsChain = true;
@@ -149,6 +172,16 @@ static void plans() {
     running.hostLoaded = true;
     p = makePlan(running, Stage::FirstMessage, true, true, true, true, true);
     check(p.horizon && !p.loginFix && !p.menu && p.controller && p.autosave, "first message, client runs");
+    check(p.gameSettings, "client without a Game settings module: ours applies the ini at start");
+    HorizonProbe withModule = chained;
+    withModule.hostGameSettings = true;
+    p = makePlan(withModule, Stage::Start, true, true, true, true, true);
+    check(p.horizon && !p.gameSettings, "client with its Game settings module: ours steps aside");
+    HorizonProbe moduleNoClient;
+    moduleNoClient.hostFile = true;
+    moduleNoClient.hostGameSettings = true;
+    p = makePlan(moduleNoClient, Stage::Start, true, true, true, true, true);
+    check(!p.horizon && p.gameSettings, "module files there but the client is not chained in: ours");
 
     HorizonProbe fileOnly;
     fileOnly.hostFile = true; // host.dll lying there, our loader is dinput8.dll itself: the client is not chained in
@@ -165,6 +198,7 @@ static void plans() {
 int main() {
     hotkeys();
     ini();
+    values();
     plans();
     printf("essentials_test: %d passed, %d failed\n", g_pass, g_fail);
     return g_fail ? 1 : 0;

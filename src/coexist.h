@@ -11,6 +11,9 @@
 //   controller fix   whoever claims it first in this process (Local\HorizonControllerHotplug.<pid>); the client's
 //                    module claims it in its start, before our first message, so the client's runs
 //   menu             the client's menu; ours stays off (no second Direct3D or DirectInput hook)
+//   game settings    the client's Game settings module (same code: vendor\horizon\game-settings) if it is
+//                    installed; ours applies nothing then. An older client without it: ours applies the ini's
+//                    values at start (no menu of ours while the client runs)
 //   autosave         ours: the client's Autosave module pauses itself when it finds this mod (eswc_autosave.dll
 //                    and dinput8.chain.dll), so there is only one saver either way
 #include <windows.h>
@@ -21,6 +24,7 @@ struct HorizonProbe {
     bool loaderIsChain = false;  // our loader runs as dinput8.chain.dll (the Horizon Legacy Loader chains it)
     bool hostFile = false;       // <exe folder>\horizon\host.dll exists
     bool hostLoaded = false;     // that DLL is loaded in this process
+    bool hostGameSettings = false; // <exe folder>\horizon\plugins\game-settings\game-settings.dll exists
 };
 
 struct Plan {
@@ -29,6 +33,7 @@ struct Plan {
     bool menu = false;        // our menu and its Direct3D / DirectInput hooks
     bool controller = false;  // try to claim and run our controller fix
     bool autosave = false;    // our autosave hooks
+    bool gameSettings = false; // apply our volumes / window mode at start (and show them in our menu)
 };
 
 enum class Stage { Start, FirstMessage };

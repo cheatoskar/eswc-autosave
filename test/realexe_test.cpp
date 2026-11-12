@@ -3,6 +3,8 @@
 //     the late-pad bindings' signatures (Binder::verify)
 //   - the login fix's import slots: ESWC 0x00aca340 and Original 0x00a162d4 are the exe's HttpOpenRequestA slot
 //   - the menu's way in: the exe imports Direct3DCreate9 or GetProcAddress
+//   - the game settings' table: PE timestamp, the code, pointer and reflection-member signatures of the volumes and
+//     of the window mode (gs::Game::audioOk / displayOk)
 // The exe image is laid out at its link address 0x400000 in this process (the exes have no relocations).
 //
 //   realexe_test.exe <exe> eswc|sunrise|original [...]
@@ -15,6 +17,9 @@
 #include <vector>
 
 #include "../vendor/horizon/controller-hotplug/hp_game.h"
+#include "../vendor/horizon/game-settings/gs_game.h"
+
+#include <set>
 
 static int g_fail = 0, g_pass = 0;
 static void check(bool ok, const char* what) {
@@ -88,6 +93,25 @@ static bool runOne(const wchar_t* path, const char* game) {
         check(v, what);
         const hp::Binder* b = backend.binder();
         check(b && g_lastLog.find("bindings code checked") == 0, "controller fix: late-pad bindings code signatures match");
+    }
+    const gs::GameTable* g = gs::tableForTimestamp(nt->FileHeader.TimeDateStamp);
+    check(g != nullptr, "game settings: table for this PE timestamp");
+    if (g) {
+        if (at != base) {
+            std::set<uintptr_t> moved; // the two parts share some pointers: move each dword once
+            for (const gs::Part* part : {&g->audio, &g->display})
+                for (int i = 0; i < part->ptrCount; i++)
+                    if (moved.insert(part->ptrs[i].addr).second)
+                        *reinterpret_cast<uint32_t*>(img + (part->ptrs[i].addr - base)) += static_cast<uint32_t>(at - base);
+        }
+        gs::Game settings(g, at, &logCb, nullptr);
+        char what[160];
+        _snprintf_s(what, _TRUNCATE, "game settings: volume signatures match (%d code, %d pointer, %d member; %s)", g->audio.codeCount,
+                    g->audio.ptrCount, g->audio.paramCount, g->name);
+        check(settings.audioOk(), what);
+        _snprintf_s(what, _TRUNCATE, "game settings: window-mode signatures match (%d code, %d pointer, %d member)", g->display.codeCount,
+                    g->display.ptrCount, g->display.paramCount);
+        check(settings.displayOk(), what);
     }
     if (strcmp(game, "eswc") == 0 || strcmp(game, "original") == 0) {
         const DWORD want = strcmp(game, "eswc") == 0 ? 0x00aca340 - 0x400000 : 0x00a162d4 - 0x400000;

@@ -1,9 +1,11 @@
-// Legacy Essentials: start order, Horizon Client check, login fix, controller fix, menu.
+// Legacy Essentials: start order, Horizon Client check, login fix, controller fix, game settings, menu.
 //
 // At start (inside the game's first DirectInput8Create): the exe is known and the ini read (autosave.cpp).
 //   - Horizon Client expected (our loader runs as dinput8.chain.dll and horizon\host.dll is there): no menu,
 //     the login fix waits for the first message.
 //   - else: login fix now, menu hooks now (the game makes its Direct3D device after this call).
+//   - either way: the ini's volumes and window mode go into the game's settings now (unless the client's Game
+//     settings module is there to do it), so the game's own start uses them.
 // On the game thread's first message (the client, if any, has started by then): login fix unless the client
 // runs, controller fix (claimed by whoever comes first: the client's module claims in its start).
 // The autosave hooks are autosave.cpp's (the client's Autosave module pauses itself for this mod).
@@ -20,6 +22,7 @@
 #include "../vendor/horizon/source.h"
 #include "coexist.h"
 #include "controller.h"
+#include "gamesettings.h"
 #include "log.h"
 #include "overlay.h"
 #include "shim/host/host.h"
@@ -287,6 +290,10 @@ void drawMenu(bool* open) {
         else status(g_loginActive ? "On" : "Off");
     }
 
+    // Volume, Music, Sounds, Window mode
+    ImGui::Separator();
+    gamesettings::drawRows(g_ini, s);
+
     // About
     ImGui::Separator();
     ImGui::TextDisabled("Version %s", kProductVersion);
@@ -313,8 +320,8 @@ void start(const ExeId& exe, const Settings& settings, uintptr_t exeBase, DWORD 
     const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(exeBase);
     const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS32*>(exeBase + dos->e_lfanew);
     g_timestamp = nt->FileHeader.TimeDateStamp;
-    AS_LOG("shared code: horizon-host %s (%s): login fix, controller fix, ImGui %s", HORIZON_SOURCE_SHORT, HORIZON_SOURCE_DATE,
-           IMGUI_VERSION);
+    AS_LOG("shared code: horizon-host %s (%s): login fix, controller fix, ImGui %s; %s (%s): game settings", HORIZON_SOURCE_SHORT,
+           HORIZON_SOURCE_DATE, IMGUI_VERSION, HORIZON_SETTINGS_SHORT, HORIZON_SETTINGS_DATE);
 
     const HorizonProbe p = probeHorizon();
     const Plan plan = makePlan(p, Stage::Start, gameHasLoginFix(), g_set.onlineFix, g_set.controllerFix, g_set.autosave,
@@ -332,6 +339,8 @@ void start(const ExeId& exe, const Settings& settings, uintptr_t exeBase, DWORD 
     } else if (!gameHasLoginFix()) {
         AS_LOG("login fix: not needed for this game, nothing changed");
     }
+    // volumes and window mode: into the game's settings now, before it makes its Direct3D device and audio
+    gamesettings::start(g_base, g_timestamp, g_set, plan.gameSettings, plan.menu);
     if (plan.menu) overlay::install(g_set.menuKey, &drawMenu);
     else if (!plan.horizon) AS_LOG("menu: MenuKey=0, no menu");
 

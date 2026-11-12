@@ -24,6 +24,10 @@ struct Settings {
     bool controllerFix = true; // ControllerFix
     // [menu]
     Hotkey menuKey;           // MenuKey, default Ctrl+F2
+    // [sound], [display]: written into the game's own settings at every start; -1 = the game's own (empty key)
+    int music = -1;           // Music, percent
+    int sounds = -1;          // Sounds, percent
+    int windowMode = -1;      // WindowMode: 0 windowed, 1 fullscreen
     Settings() {
         menuKey.vk = VK_F2;
         menuKey.ctrl = true;
@@ -37,6 +41,11 @@ bool parseHotkey(const wchar_t* text, Hotkey* out);
 void formatHotkey(const Hotkey& k, wchar_t* out, size_t cap);
 // true when the key event (virtual key + current modifier state) is this hotkey.
 bool hotkeyMatches(const Hotkey& k, UINT vk, bool ctrl, bool shift, bool alt);
+
+// "0".."100" -> percent; "", "game" or anything else -> -1 (the game's own). Values above 100 are 100.
+int parsePercent(const wchar_t* text);
+// "windowed" -> 0, "fullscreen" -> 1, else -1 (the game's own)
+int parseWindowMode(const wchar_t* text);
 
 // <exe folder>\eswc_autosave.ini
 void iniPath(wchar_t* out, size_t cap);

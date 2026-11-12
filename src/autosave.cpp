@@ -148,9 +148,11 @@ void loadConfig(Settings* s) {
     g_cfg.tmxCopy = s->tmxCopy;
     wchar_t key[48];
     formatHotkey(s->menuKey, key, 48);
-    AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d TmxCopy=%d OnlineFix=%d ControllerFix=%d MenuKey=%ls",
+    AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d TmxCopy=%d OnlineFix=%d ControllerFix=%d MenuKey=%ls "
+           "Music=%d Sounds=%d WindowMode=%s",
            exists ? "eswc_autosave.ini" : "no ini, defaults", g_cfg.enabled, g_cfg.bestOnly ? "best" : "all", g_cfg.testKey,
-           g_cfg.scanReplays, g_cfg.tmxCopy, s->onlineFix, s->controllerFix, key);
+           g_cfg.scanReplays, g_cfg.tmxCopy, s->onlineFix, s->controllerFix, key, s->music, s->sounds,
+           s->windowMode == 1 ? "fullscreen" : s->windowMode == 0 ? "windowed" : "game");
 }
 
 // ---------------------------------------------------------------- build check ---------------

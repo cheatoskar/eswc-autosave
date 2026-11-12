@@ -4,6 +4,9 @@
 //   - Ctrl+F2 opens the menu, the menu is drawn (pixels differ from the cleared frame), Esc closes it
 //   - while the menu is open the DirectInput keyboard table is ours
 //   - keyboard navigation: Down + Space toggles "Autosave", the ini gets Enabled=0, the switch reaches the autosave
+//   - Music / Window mode on a fake Sunrise game in memory (the vendored game-settings table's own signatures and
+//     objects behind its globals): keyboard Left lowers the music in the game's audio port and config and writes
+//     Music= to the ini; the combo sets the game's FullScreen and writes WindowMode=fullscreen
 //   - a saved replay shows the toast
 // Writes build\test\menu_test.bmp (menu open) and menu_toast.bmp (toast) next to this exe. Not the game: the
 // controller fix finds no table for this exe and says so; there is no login fix (Sunrise-like).
@@ -15,7 +18,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <initializer_list>
+
 #include "../src/essentials.h"
+#include "../src/gamesettings.h"
+#include "../vendor/horizon/game-settings/gs_game.h"
 #include "../src/overlay.h"
 #include "../src/settings.h"
 #include "../src/log.h"
@@ -127,6 +134,45 @@ static void key(UINT vk, bool ctrl) {
     frames(2);
 }
 
+// a fake Sunrise image + the objects behind its globals (as gs_tests does it)
+struct FakeGame {
+    const gs::GameTable* t = &gs::sunriseTable();
+    uint8_t* img = nullptr;
+    uint8_t app[0x40] = {}, config[0x120] = {}, display[0x40] = {}, mgr[0x40] = {}, engines[0x60] = {}, audioEngine[0x40] = {},
+            port[0x40] = {};
+    uint8_t* at(uintptr_t link) { return img + (link - 0x400000); }
+    static void put(void* p, uint32_t v) { memcpy(p, &v, 4); }
+    static uint32_t ptr(const void* p) { return static_cast<uint32_t>(reinterpret_cast<uintptr_t>(p)); }
+    static float getF(const void* p) {
+        float v;
+        memcpy(&v, p, 4);
+        return v;
+    }
+    void build() {
+        img = static_cast<uint8_t*>(VirtualAlloc(nullptr, 0x900000, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
+        for (const gs::Part* p : {&t->audio, &t->display}) {
+            for (int i = 0; i < p->codeCount; i++) memcpy(at(p->code[i].addr), p->code[i].bytes, p->code[i].len);
+            for (int i = 0; i < p->ptrCount; i++) put(at(p->ptrs[i].addr), static_cast<uint32_t>(p->ptrs[i].value - 0x400000 + ptr(img)));
+            for (int i = 0; i < p->paramCount; i++) {
+                const uint32_t w[4] = {p->params[i].type, p->params[i].id, 0, p->params[i].offset};
+                memcpy(at(p->params[i].addr), w, sizeof(w));
+            }
+        }
+        const float sound = 0.8f, music = 0.6f;
+        put(at(t->app), ptr(app));
+        put(app + 0x18, ptr(config));
+        put(config + 0x20, ptr(display));
+        memcpy(config + t->cfgSound, &sound, 4);
+        memcpy(config + t->cfgMusic, &music, 4);
+        put(at(t->engines), ptr(mgr));
+        put(mgr + 0x28, ptr(engines));
+        put(engines + 0x40, ptr(audioEngine));
+        put(audioEngine + 0x2c, ptr(port));
+        memcpy(port + 0x14, &sound, 4);
+        memcpy(port + 0x18, &music, 4);
+    }
+};
+
 static bool tableIsOurs(void* fn) {
     HMODULE m = nullptr;
     GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, static_cast<LPCWSTR>(fn), &m);
@@ -149,6 +195,10 @@ int wmain() {
     autosave::Settings set;
     autosave::essentials::start(kTestExe, set, reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr)), GetCurrentThreadId());
     check(autosave::overlay::installed(), "overlay installed (standalone, menu key set)");
+    // the game settings once more, on a fake Sunrise game (this exe is not a game: its rows would say Unavailable)
+    static FakeGame fake;
+    fake.build();
+    autosave::gamesettings::start(reinterpret_cast<uintptr_t>(fake.img), gs::sunriseTable().timestamp, set, true, false);
 
     WNDCLASSW wc = {};
     wc.lpfnWndProc = DefWindowProcW;
@@ -225,7 +275,38 @@ int wmain() {
     GetPrivateProfileStringW(L"autosave", L"Mode", L"", mode, 16, ini);
     check(wcscmp(mode, L"all") == 0, "Best times only switched off (Mode=all)");
     key(VK_SPACE, false);
-    key(VK_UP, false); // back on "Autosave" for the screenshot
+
+    // from the bottom (End: "Close"), Up: Window mode, Sounds, Music
+    key(VK_END, false);
+    key(VK_UP, false);
+    key(VK_UP, false);
+    key(VK_UP, false);
+    key(VK_SPACE, false); // a slider takes the arrows once activated (ImGui keyboard navigation) ...
+    key(VK_LEFT, false);
+    key(VK_LEFT, false);
+    key(VK_LEFT, false);
+    const float musicPort = FakeGame::getF(fake.port + 0x18), musicCfg = FakeGame::getF(fake.config + fake.t->cfgMusic);
+    key(VK_SPACE, false); // ... and lets go of them on Space
+    frames(3);
+    key(VK_DOWN, false); // Sounds
+    const UINT musicIni = GetPrivateProfileIntW(L"sound", L"Music", 999, ini);
+    printf("      after 3x Left on Music: port %.3f, config %.3f, ini Music=%u\n", musicPort, musicCfg, musicIni);
+    check(musicPort > 0.565f && musicPort < 0.575f && musicCfg == musicPort, "Music 60% -> 57% in the game's audio port and config");
+    check(musicIni == 57, "Music=57 written to the ini");
+    check(FakeGame::getF(fake.port + 0x14) == 0.8f, "Sounds untouched");
+    // Window mode: Down to the combo, Space opens it, Down + Space picks Fullscreen
+    key(VK_DOWN, false);
+    key(VK_SPACE, false);
+    key(VK_DOWN, false);
+    key(VK_SPACE, false);
+    frames(3);
+    uint32_t fsNow = 7;
+    memcpy(&fsNow, fake.display + 0x34, 4);
+    wchar_t wm[16] = L"";
+    GetPrivateProfileStringW(L"display", L"WindowMode", L"", wm, 16, ini);
+    printf("      window mode: FullScreen=%u, ini WindowMode=%ls\n", fsNow, wm);
+    check(fsNow == 1 && wcscmp(wm, L"fullscreen") == 0, "Window mode Fullscreen: the game's setting and the ini");
+    key(VK_UP, false); // to Sounds for the screenshot
     changed = capture(bmp1, center, &inArea); // keep this one: the menu as the player sees it
 
     key(VK_ESCAPE, false);

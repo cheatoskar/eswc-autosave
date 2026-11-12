@@ -5,7 +5,7 @@
     {
       "type": "hero",
       "title": "Legacy Essentials",
-      "tagline": "Autosave, controller fix, login fix and a small menu for TrackMania Nations ESWC, Sunrise and Original.",
+      "tagline": "Autosave, controller fix, login fix, volume and window mode in a small menu for TrackMania Nations ESWC, Sunrise and Original.",
       "badges": ["ESWC, Sunrise, Original", "No installer", "Online-safe"]
     },
     {
@@ -14,9 +14,9 @@
         { "icon": "save", "title": "Replays on their own", "text": "Every finish is saved as a normal .Replay.Gbx, without clicking Save replay. Best times only, or every finish." },
         { "icon": "gamepad-2", "title": "Controller fix", "text": "A pad plugged in or switched on mid-race works at once, with the game's own bindings for it." },
         { "icon": "globe", "title": "Online login fixed", "text": "ESWC and Original: the login works again on Windows 10 and 11 (error 12157). For the game process only." },
-        { "icon": "sliders-horizontal", "title": "Small menu", "text": "Ctrl+F2 switches each part on or off and opens the replay folder. Settings stay in the ini." },
+        { "icon": "sliders-horizontal", "title": "Small menu", "text": "Ctrl+F2: volume, music, sounds and window mode, each part on or off, the replay folder. Settings stay in the ini." },
         { "icon": "share-2", "title": "TMX copy", "text": "ESWC servers: a second file keeps only your ghost and inputs, ready for TMX." },
-        { "icon": "puzzle", "title": "Fits the Horizon Client", "text": "With the Horizon Client it steps aside for the client's login fix, controller fix and menu." }
+        { "icon": "puzzle", "title": "Fits the Horizon Client", "text": "With the Horizon Client it steps aside for the client's login fix, controller fix, game settings and menu." }
       ]
     },
     {

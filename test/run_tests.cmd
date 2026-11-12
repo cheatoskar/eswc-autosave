@@ -8,6 +8,7 @@ set "T=build\test"
 set "FAIL=0"
 %T%\essentials_test.exe || set "FAIL=1"
 %T%\hp_tests.exe || set "FAIL=1"
+%T%\gs_tests.exe || set "FAIL=1"
 %T%\menu_test.exe || set "FAIL=1"
 if "%~1"=="" (
     %T%\legacy_test.exe || set "FAIL=1"
