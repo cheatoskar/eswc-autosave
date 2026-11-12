@@ -282,12 +282,17 @@ int wmain() {
     key(VK_UP, false);
     key(VK_UP, false);
     key(VK_SPACE, false); // a slider takes the arrows once activated (ImGui keyboard navigation) ...
+    key(VK_LEFT, false); // the first step reaches the game at once ...
+    const float firstStep = FakeGame::getF(fake.port + 0x18);
     key(VK_LEFT, false);
     key(VK_LEFT, false);
-    key(VK_LEFT, false);
-    const float musicPort = FakeGame::getF(fake.port + 0x18), musicCfg = FakeGame::getF(fake.config + fake.t->cfgMusic);
-    key(VK_SPACE, false); // ... and lets go of them on Space
+    const UINT iniWhileDragging = GetPrivateProfileIntW(L"sound", L"Music", 999, ini);
+    key(VK_SPACE, false); // ... and lets go of them on Space: the last value now, and the ini
     frames(3);
+    const float musicPort = FakeGame::getF(fake.port + 0x18), musicCfg = FakeGame::getF(fake.config + fake.t->cfgMusic);
+    printf("      first step: port %.3f; ini while dragging: %u\n", firstStep, iniWhileDragging);
+    check(firstStep > 0.585f && firstStep < 0.595f, "Music: the first step is applied at once (59%)");
+    check(iniWhileDragging == 999, "Music: the ini is not written while dragging");
     key(VK_DOWN, false); // Sounds
     const UINT musicIni = GetPrivateProfileIntW(L"sound", L"Music", 999, ini);
     printf("      after 3x Left on Music: port %.3f, config %.3f, ini Music=%u\n", musicPort, musicCfg, musicIni);

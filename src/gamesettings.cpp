@@ -40,6 +40,35 @@ void savePercent(const wchar_t* ini, const wchar_t* key, int pct) {
     else AS_LOG("menu: %ls=%d", key, pct);
 }
 
+// A 0..100 % slider: shows the game's value, applies a drag at most every 100 ms and once more when it is let
+// go (gs::Throttle), so the game does not redo its sounds on every frame. true when an edit ended: *done = value.
+struct Drag {
+    bool active = false;
+    int value = 0;
+    gs::Throttle throttle;
+};
+Drag g_dragVolume, g_dragMusic, g_dragSounds;
+
+bool slider(const char* id, Drag& d, int current, void (*apply)(int), int* done) {
+    int pct = d.active ? d.value : current;
+    ImGui::SliderInt(id, &pct, 0, 100, "%d%%");
+    const bool active = ImGui::IsItemActive();
+    const bool released = ImGui::IsItemDeactivated();
+    if (active && !d.active) d.throttle.begin(current);
+    if (active || released) {
+        d.value = pct;
+        if (d.throttle.due(pct, released, GetTickCount())) apply(pct);
+    }
+    d.active = active;
+    if (!ImGui::IsItemDeactivatedAfterEdit()) return false;
+    *done = pct;
+    return true;
+}
+
+void applyMusic(int pct) { g_game->setMusic(gs::fromPercent(pct)); }
+void applySounds(int pct) { g_game->setSounds(gs::fromPercent(pct)); }
+void applyVolume(int pct) { g_master->set(gs::fromPercent(pct)); }
+
 void volumeRow(const wchar_t* ini, float scale, const char* label, const char* id, bool music) {
     float v = -1.0f;
     const bool ok = g_game && (music ? g_game->readMusic(&v) : g_game->readSounds(&v));
@@ -48,12 +77,9 @@ void volumeRow(const wchar_t* ini, float scale, const char* label, const char* i
         unavailable();
         return;
     }
-    int pct = gs::toPercent(v);
-    if (ImGui::SliderInt(id, &pct, 0, 100, "%d%%")) {
-        if (music) g_game->setMusic(gs::fromPercent(pct));
-        else g_game->setSounds(gs::fromPercent(pct));
-    }
-    if (ImGui::IsItemDeactivatedAfterEdit()) savePercent(ini, music ? L"Music" : L"Sounds", pct);
+    int pct = 0;
+    if (slider(id, music ? g_dragMusic : g_dragSounds, gs::toPercent(v), music ? &applyMusic : &applySounds, &pct))
+        savePercent(ini, music ? L"Music" : L"Sounds", pct); // kept, and put into the game at every start
 }
 
 } // namespace
@@ -92,9 +118,9 @@ void drawRows(const wchar_t* ini, float scale) {
     if (master < 0.0f) {
         unavailable();
     } else {
-        int pct = gs::toPercent(master);
-        if (ImGui::SliderInt("##le-volume", &pct, 0, 100, "%d%%")) g_master->set(gs::fromPercent(pct));
-        if (ImGui::IsItemDeactivatedAfterEdit()) AS_LOG("menu: volume %d%% (Windows audio session)", pct);
+        int pct = 0;
+        if (slider("##le-volume", g_dragVolume, gs::toPercent(master), &applyVolume, &pct))
+            AS_LOG("menu: volume %d%% (Windows audio session)", pct);
     }
     volumeRow(ini, scale, "Music", "##le-music", true);
     volumeRow(ini, scale, "Sounds", "##le-sounds", false);
