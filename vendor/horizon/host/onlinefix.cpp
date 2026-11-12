@@ -1,4 +1,10 @@
-// Online fix (OnlineFix=1).
+// Online fix for ESWC and TM Original (host setting OnlineFix, default on). Moved here unchanged from my
+// eswc-autosave (src/online.cpp, MIT): the game's login must keep working when this host replaces that loader.
+//
+// TM Original (Online Patch v2 exe): the patch's readme asks for the same two things system-wide (Internet
+// Options: "Use TLS 1.0" on, "Check for server certificate revocation" off). The same in-process change is used
+// there, at the exe's own HttpOpenRequestA import slot (0x00a162d4); nothing in the game's login code is touched.
+// Not tested against the server yet.
 //
 // Finding: the game logs in at https://game.trackmanianations.com/online_game/... (host and path
 // set in FUN_00401150, ports 443 at DAT_00c07368/6c). FUN_004e8710 opens every request with
@@ -13,20 +19,19 @@
 // Fix, only inside this process and only these two things:
 //  1. When WinINet reads the DWORD "SecureProtocols", TLS 1.0 (0x80) is added. Nothing else changes,
 //     the registry itself is untouched.
-//  2. The game's HttpOpenRequestA (import slot 0x00aca340; TM Original: 0x00a162d4) additionally sets
+//  2. The game's HttpOpenRequestA (import slot 0x00aca340) additionally sets
 //     SECURITY_FLAG_IGNORE_REVOCATION on HTTPS requests; the game already ignores name and date of
 //     the certificate, and the revocation check of that expired certificate fails (12057), which
 //     the game's retry does not handle.
 // No URL, host, port, request or answer is changed.
-#include "online.h"
-
 #include <windows.h>
 #include <wininet.h>
+#include <cstdint>
 #include <string.h>
 
-#include "log.h"
+#include "host/host.h"
 
-namespace autosave {
+namespace horizon {
 namespace {
 
 constexpr uintptr_t kPreferredBase = 0x00400000;
@@ -49,7 +54,7 @@ LSTATUS WINAPI regQueryDetour(HKEY key, LPCWSTR name, LPDWORD reserved, LPDWORD 
             const DWORD before = *v;
             *v |= kTls10Client;
             if (InterlockedExchange(&g_loggedProtocols, 1) == 0)
-                AS_LOG("online: WinINet SecureProtocols 0x%lX -> 0x%lX for this process (TLS 1.0 allowed)", before, *v);
+                HLOG("online: WinINet SecureProtocols 0x%lX -> 0x%lX for this process (TLS 1.0 allowed)", before, *v);
         }
     }
     return s;
@@ -72,7 +77,7 @@ HINTERNET WINAPI openRequestDetour(HINTERNET connect, LPCSTR verb, LPCSTR object
                     for (; object[i] && object[i] != '?' && i < sizeof(path) - 1; i++) path[i] = object[i];
                     path[i] = 0;
                 }
-                AS_LOG("online: HTTPS %s %s -> revocation check off %s", verb ? verb : "GET", path, ok ? "" : "(FAILED)");
+                HLOG("online: HTTPS %s %s -> revocation check off %s", verb ? verb : "GET", path, ok ? "" : "(FAILED)");
             }
         }
     }
@@ -84,7 +89,7 @@ bool hookRegQuery() {
     BYTE* t = kb ? reinterpret_cast<BYTE*>(GetProcAddress(kb, "RegQueryValueExW")) : nullptr;
     // Hot-patchable prologue: mov edi,edi / push ebp / mov ebp,esp
     if (!t || !(t[0] == 0x8B && t[1] == 0xFF && t[2] == 0x55 && t[3] == 0x8B && t[4] == 0xEC)) {
-        AS_LOG("online: kernelbase!RegQueryValueExW has an unexpected start, not hooked");
+        HLOG("online: kernelbase!RegQueryValueExW has an unexpected start, not hooked");
         return false;
     }
     BYTE* tramp = static_cast<BYTE*>(VirtualAlloc(nullptr, 16, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
@@ -108,7 +113,7 @@ bool hookOpenRequest(uintptr_t exeBase, uintptr_t iatSlot) {
     HMODULE wi = GetModuleHandleW(L"wininet.dll");
     void* real = wi ? reinterpret_cast<void*>(GetProcAddress(wi, "HttpOpenRequestA")) : nullptr;
     if (!real || *slot != real) {
-        AS_LOG("online: import slot of HttpOpenRequestA does not match, not hooked");
+        HLOG("online: import slot of HttpOpenRequestA does not match, not hooked");
         return false;
     }
     g_openRequest = reinterpret_cast<FnOpenRequest>(real);
@@ -124,8 +129,8 @@ bool hookOpenRequest(uintptr_t exeBase, uintptr_t iatSlot) {
 void onlineFixInstall(uintptr_t exeBase, uintptr_t iatSlot) {
     const bool a = hookRegQuery();
     const bool b = a && hookOpenRequest(exeBase, iatSlot);
-    if (a && b) AS_LOG("online: fix active (TLS 1.0 for WinINet in this process, no revocation check on HTTPS)");
-    else AS_LOG("online: fix NOT active");
+    if (a && b) HLOG("online: fix active (TLS 1.0 for WinINet in this process, no revocation check on HTTPS)");
+    else HLOG("online: fix NOT active");
 }
 
-} // namespace autosave
+} // namespace horizon

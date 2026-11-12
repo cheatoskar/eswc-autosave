@@ -2,6 +2,8 @@
 
 Status: proposal. Nothing below is applied yet; the code, files and repo keep the name `eswc-autosave` until I approve the rename.
 
+Update 1.3.0: the product name in the README, menu and log is now **Legacy Essentials** (autosave plus controller fix, login fix and menu), not "Legacy Autosave". The repo name, file names, export and Horizon module id are unchanged, as recommended below; a repo rename would use "Legacy Essentials" in the texts below.
+
 Why: since 1.2.0 the mod supports TrackMania Nations ESWC, TrackMania Sunrise and TrackMania Original. "ESWC Autosave" undersells that and makes Sunrise/Original players skip it.
 
 Proposed names: product **Legacy Autosave**, GitHub repo **`cheatoskar/tm-legacy-autosave`** (GitHub keeps a redirect from the old URL after a rename, for web and git).

@@ -225,6 +225,7 @@ void saveNow(void* replay, const char* reason) {
         AS_LOG("[Solo] %s", hdr);
         g_stats.saved++;
         wcscpy_s(g_stats.lastPath, full);
+        if (g_cfg.onSaved) g_cfg.onSaved(full);
     } else if (r.ok == 0) {
         AS_LOG("[Solo] ERROR (%s): %s  [%s]", reason, r.why, name);
         g_stats.failed++;
@@ -254,7 +255,7 @@ void __fastcall finishDetour(void* race, void* edx, void* player) {
     g_finishDepth++;
     reinterpret_cast<FnFinish>(g_finishHook.trampoline)(race, edx, player);
     g_finishDepth--;
-    if (!info || stateBefore != 1) return;
+    if (!info || stateBefore != 1 || !g_cfg.enabled) return; // switched off in the menu: the game's code only
     __try {
         if (field<int>(info, off::kInfoRaceState) != 2) return; // a lap or a rejected crossing
         void* local = fn<FnLocalInfo>(g_game->localPlayerInfo)(race, nullptr);
@@ -319,6 +320,13 @@ LRESULT CALLBACK getMsgProc(int code, WPARAM wParam, LPARAM lParam) {
 } // namespace
 
 const Stats& stats() { return g_stats; }
+
+void setEnabled(bool on) {
+    g_cfg.enabled = on;
+    g_armed = false;
+}
+
+void setBestOnly(bool on) { g_cfg.bestOnly = on; }
 
 void saveNowManual() {
     void* replay = nullptr;

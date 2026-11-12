@@ -35,23 +35,19 @@
 #include "header.h"
 #include "hook.h"
 #include "legacy.h"
+#include "essentials.h"
 #include "log.h"
-#include "online.h"
+#include "settings.h"
 #include "sha256.h"
 #include "tmxcopy.h"
 
 namespace autosave {
 namespace {
 
-constexpr char kVersion[] = "1.2.0";
-
 // ---------------------------------------------------------------- build ---------------------
 // The exe is identified in games.h (ESWC, Sunrise, Original: size, PE timestamp, SHA-256).
+// The login fix (HttpOpenRequestA import slots) and everything else besides the autosave: essentials.cpp.
 constexpr uintptr_t kPreferredBase = 0x00400000;
-// HttpOpenRequestA import slots for the online fix (ESWC: see online.cpp; Original: the exe's import
-// table, called once at 0x00485961). Sunrise: no fix (its login problem is not known, nothing added).
-constexpr uintptr_t kEswcIatHttpOpenRequestA = 0x00aca340;
-constexpr uintptr_t kOriginalIatHttpOpenRequestA = 0x00a162d4;
 
 // Functions (link addresses, the exe has no relocations/ASLR, rebased anyway).
 constexpr uintptr_t kOnFinishLine = 0x006d9f50;   // void CTrackManiaRace::OnFinishLine(CTrackManiaPlayer*)  ret 4
@@ -127,35 +123,34 @@ template <typename T> T field(const void* obj, size_t off) {
 }
 
 // ---------------------------------------------------------------- config --------------------
+// The autosave part of the ini (settings.cpp reads it). enabled and bestOnly change from the menu.
 struct Config {
     bool enabled = true;
     bool bestOnly = false;
     UINT testKey = VK_F9; // 0 = off
     bool scanReplays = true;
-    bool onlineFix = true;
     bool tmxCopy = true;
 } g_cfg;
 
-void loadConfig() {
+const ExeId* g_exe = nullptr;
+bool g_hooksTried = false;
+bool g_hooksOk = false;
+
+void loadConfig(Settings* s) {
     wchar_t path[MAX_PATH];
-    DWORD n = GetModuleFileNameW(nullptr, path, MAX_PATH);
-    wchar_t* slash = (n && n < MAX_PATH) ? wcsrchr(path, L'\\') : nullptr;
-    if (!slash) return;
-    wcscpy_s(slash + 1, MAX_PATH - (slash + 1 - path), L"eswc_autosave.ini");
-    const bool exists = GetFileAttributesW(path) != INVALID_FILE_ATTRIBUTES;
-    g_cfg.enabled = GetPrivateProfileIntW(L"autosave", L"Enabled", 1, path) != 0;
-    wchar_t mode[32] = L"";
-    GetPrivateProfileStringW(L"autosave", L"Mode", L"best", mode, 32, path);
-    g_cfg.bestOnly = _wcsicmp(mode, L"best") == 0;
-    wchar_t key[32] = L"";
-    GetPrivateProfileStringW(L"autosave", L"TestKey", L"0x78", key, 32, path);
-    g_cfg.testKey = static_cast<UINT>(wcstoul(key, nullptr, 0)) & 0xff;
-    g_cfg.scanReplays = GetPrivateProfileIntW(L"autosave", L"ScanReplays", 1, path) != 0;
-    g_cfg.onlineFix = GetPrivateProfileIntW(L"online", L"OnlineFix", 1, path) != 0;
-    g_cfg.tmxCopy = GetPrivateProfileIntW(L"autosave", L"TmxCopy", 1, path) != 0;
-    AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d TmxCopy=%d OnlineFix=%d",
+    iniPath(path, MAX_PATH);
+    bool exists = false;
+    loadSettings(path, s, &exists);
+    g_cfg.enabled = s->autosave;
+    g_cfg.bestOnly = s->bestOnly;
+    g_cfg.testKey = s->testKey;
+    g_cfg.scanReplays = s->scanReplays;
+    g_cfg.tmxCopy = s->tmxCopy;
+    wchar_t key[48];
+    formatHotkey(s->menuKey, key, 48);
+    AS_LOG("config: %s, Enabled=%d Mode=%s TestKey=0x%02X ScanReplays=%d TmxCopy=%d OnlineFix=%d ControllerFix=%d MenuKey=%ls",
            exists ? "eswc_autosave.ini" : "no ini, defaults", g_cfg.enabled, g_cfg.bestOnly ? "best" : "all", g_cfg.testKey,
-           g_cfg.scanReplays, g_cfg.tmxCopy, g_cfg.onlineFix);
+           g_cfg.scanReplays, g_cfg.tmxCopy, s->onlineFix, s->controllerFix, key);
 }
 
 // ---------------------------------------------------------------- build check ---------------
@@ -435,6 +430,7 @@ void saveNow(void* replay, bool solo, const char* reason, int localTime) {
         char hdr[200];
         checkReplayHeader(full, hdr, sizeof(hdr));
         AS_LOG("[%s] %s", mode, hdr);
+        essentials::noteSaved(full);
         if (!solo && g_cfg.tmxCopy) startTmxCopy(full, localTime); // network race: maybe several ghosts
     } else if (r.ok == 0) {
         AS_LOG("[%s] ERROR (%s): %s  [%s]", mode, reason, r.why, name);
@@ -467,7 +463,7 @@ void __fastcall finishDetour(void* race, void* edx, void* player) {
     g_finishDepth++;
     reinterpret_cast<FnFinish>(g_finishHook.trampoline)(race, edx, player);
     g_finishDepth--;
-    if (!info || stateBefore != 1) return;
+    if (!info || stateBefore != 1 || !g_cfg.enabled) return; // switched off in the menu: the game's code only
     __try {
         if (field<int>(info, kInfoRaceState) != 2) return; // a lap or a rejected crossing
         void* local = fn<FnLocalInfo>(kLocalPlayerInfo)(race, nullptr);
@@ -591,39 +587,40 @@ void initOnce() {
     g_done = true;
     g_base = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
     g_mainThread = GetCurrentThreadId();
-    AS_LOG("---- eswc_autosave %s start (thread %lu) ----", kVersion, g_mainThread);
+    AS_LOG("---- Legacy Essentials %s start (eswc_autosave.dll, thread %lu) ----", kProductVersion, g_mainThread);
     const ExeId* exe = identifyBuild();
     if (!exe) return;
-    loadConfig();
-    if (exe->game != Game::Eswc) {
+    g_exe = exe;
+    Settings settings;
+    loadConfig(&settings);
+    // login fix, controller fix, menu, Horizon Client check
+    essentials::start(*exe, settings, g_base, g_mainThread);
+    if (!g_cfg.enabled) {
+        AS_LOG("autosave: Enabled=0, no hooks (the menu can switch it on)");
+        return;
+    }
+    autosaveInstall();
+}
+
+bool autosaveInstall() {
+    if (g_hooksTried) return g_hooksOk;
+    if (!g_exe) return false;
+    g_hooksTried = true;
+    if (g_exe->game != Game::Eswc) {
         // Sunrise / Original: solo autosave only (legacy.cpp).
-        if (exe->game == Game::Original) {
-            if (g_cfg.onlineFix) onlineFixInstall(g_base, kOriginalIatHttpOpenRequestA);
-            else AS_LOG("online: OnlineFix=0, nothing changed");
-        } else {
-            AS_LOG("online: no login fix for this game, nothing changed");
-        }
-        if (!g_cfg.enabled) {
-            AS_LOG("autosave disabled in the ini, no hooks");
-            return;
-        }
         legacy::Config lc;
         lc.bestOnly = g_cfg.bestOnly;
         lc.scanReplays = g_cfg.scanReplays;
         lc.testKey = g_cfg.testKey;
-        legacy::start(*legacyGame(exe->game), g_base, lc, g_mainThread);
-        return;
-    }
-    if (g_cfg.onlineFix) onlineFixInstall(g_base, kEswcIatHttpOpenRequestA);
-    else AS_LOG("online: OnlineFix=0, nothing changed");
-    if (!g_cfg.enabled) {
-        AS_LOG("autosave disabled in the ini, no hooks");
-        return;
+        lc.enabled = g_cfg.enabled;
+        lc.onSaved = &essentials::noteSaved;
+        g_hooksOk = legacy::start(*legacyGame(g_exe->game), g_base, lc, g_mainThread);
+        return g_hooksOk;
     }
     const bool a = installHook(g_finishHook, reinterpret_cast<void*>(&finishDetour), g_base);
     if (!a) {
         AS_LOG("finish hook missing, autosave inactive");
-        return;
+        return false;
     }
     const bool b = installHook(g_keepCopyHook, reinterpret_cast<void*>(&keepCopyDetour), g_base);
     const bool c = installHook(g_soloEndHook, reinterpret_cast<void*>(&soloEndDetour), g_base);
@@ -634,6 +631,23 @@ void initOnce() {
     }
     AS_LOG("ready: saving after every %s of the local player (LAN %s, Solo %s)",
            g_cfg.bestOnly ? "new best finish" : "finish", b ? "on" : "OFF", c ? "on" : "OFF");
+    g_hooksOk = true;
+    return true;
+}
+
+bool autosaveInstalled() { return g_hooksOk; }
+
+void autosaveSetEnabled(bool on) {
+    g_cfg.enabled = on;
+    g_armed = false; // a finish waiting for its copy is dropped
+    legacy::setEnabled(on);
+    AS_LOG("autosave: %s", on ? "on" : "off (finishes are not saved)");
+}
+
+void autosaveSetBestOnly(bool on) {
+    g_cfg.bestOnly = on;
+    legacy::setBestOnly(on);
+    AS_LOG("autosave: Mode=%s", on ? "best" : "all");
 }
 
 } // namespace autosave

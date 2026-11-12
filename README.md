@@ -1,8 +1,13 @@
-# eswc-autosave
+# Legacy Essentials
 
-Automatic replay saving (and a fix for the online login) for **TrackMania Nations ESWC**, and since 1.2.0 also for **TrackMania Sunrise** and **TrackMania Original** (solo).
+Small fixes for the old TrackMania games: **TrackMania Nations ESWC**, **TrackMania Sunrise** and **TrackMania Original** (formerly "eswc-autosave").
 
-Drop three files next to the game exe and every finish is saved as a normal `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. The old games only keep a ghost of your best run in `Autosaves` (not validable); this mod saves the full replay. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
+- **Autosave**: every finish is saved as a normal `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. The old games only keep a ghost of your best run in `Autosaves` (not validable); this saves the full replay. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
+- **Controller fix**: a controller plugged in or switched on while the game runs works at once, with the game's own bindings for it. Without it the game only sees controllers that were there at start.
+- **Login fix** (ESWC, Original): the online login works again on Windows 10/11 (error 12157).
+- **Menu**: `Ctrl+F2` in the game switches each of these on or off.
+
+Three files next to the game exe, no installer, no other program needed.
 
 ## Requirements
 
@@ -20,23 +25,44 @@ With any other exe the mod does nothing (DirectInput is still passed through), a
 
 | File | What it is |
 |---|---|
-| `dinput8.dll` | a 4 KB loader. Windows loads it because the game asks for `dinput8.dll`. It passes every DirectInput call unchanged to the system's `dinput8.dll` and loads `eswc_autosave.dll` from the same folder. That's all it does (`src/loader.cpp`, ~120 lines, no C runtime). |
-| `eswc_autosave.dll` | the mod: autosave, TMX copy, online fix, log. |
+| `dinput8.dll` | a small loader (a few KB, no C runtime). Windows loads it because the game asks for `dinput8.dll`. It passes every DirectInput call unchanged to the system's `dinput8.dll` (or to `dinput8.chain.dll`, see below) and loads `eswc_autosave.dll` from the same folder. That's all it does (`src/loader.cpp`). |
+| `eswc_autosave.dll` | the mod: autosave, TMX copy, login fix, controller fix, menu, log. |
 | `eswc_autosave.ini` | settings |
+
+The file names stay as they were in eswc-autosave, so updating keeps your ini and the TM Horizon launcher finds the mod.
 
 ## Install
 
 1. Close the game.
-2. Download the zip from [Releases](../../releases) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to the game exe (`TmNationsESWC.exe`, `TmSunrise.exe` or `TMORIGINAL.EXE`). If the folder already has a `dinput8.dll` from another mod (for example TM Horizon's loader), use that mod's way of adding a second loader instead of overwriting it; with TM Horizon, use its "Autosave & Login-Fix" module instead of this standalone.
-3. Start the game. `eswc_autosave.log` appears in the game folder and should contain `recognised, sha256 ok` and `ready: …`.
+2. Download the zip from [Releases](../../releases) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to the game exe (`TmNationsESWC.exe`, `TmSunrise.exe` or `TMORIGINAL.EXE`).
+   - Another mod's `dinput8.dll` already there: rename it to `dinput8.chain.dll` first. The loader passes DirectInput on to it, so that mod keeps working.
+   - With the Horizon Client: see [With the Horizon Client](#with-the-horizon-client).
+3. Start the game. `eswc_autosave.log` appears in the game folder and should contain `recognised, sha256 ok` and `ready`. `Ctrl+F2` opens the menu.
 
-Updating from 1.0.0 (one `dinput8.dll` with everything inside): replace `dinput8.dll` and add `eswc_autosave.dll`; the ini stays. Both DLLs must come from the same release, otherwise the log says `loader api … different versions` and the mod stays off.
+Updating from 1.x: replace `dinput8.dll` and `eswc_autosave.dll`; your ini keeps working (new keys get their defaults). Both DLLs must come from the same release, otherwise the log says `loader api … different versions` and the mod stays off.
 
 No `eswc_autosave.log` after starting the game means `eswc_autosave.dll` is missing or could not be loaded: the game then runs without the mod.
 
-To remove it, delete `dinput8.dll` and `eswc_autosave.dll` (and the ini/log). Deleting only `eswc_autosave.dll` also turns the mod off.
+To remove it, delete `dinput8.dll` and `eswc_autosave.dll` (and the ini/log), and rename a `dinput8.chain.dll` back to `dinput8.dll`. Deleting only `eswc_autosave.dll` also turns the mod off.
+
+## Menu
+
+`Ctrl+F2` opens and closes it (`Esc` closes it too). Mouse or keyboard (arrow keys, `Space`). While it is open the game gets no keyboard or mouse input; controllers are not touched.
+
+| Item | |
+|---|---|
+| Autosave | on/off; status `On`, `Off` or how many replays were saved this start |
+| Best times only | save only new personal bests (`Mode=best`) |
+| Open folder | opens the folder of the last saved replay (`My Replays` before the first save) |
+| Controller fix | on/off; status `On`, the number of pads it added, or `Unsupported` (the game code is not the one it knows) |
+| Login fix | ESWC and Original; a change takes effect at the next start (`Restart game`) |
+| Version, game, menu key | |
+
+Every change is written to `eswc_autosave.ini` at once. A short note in the top right corner shows saved replays and added controllers. The key is `MenuKey` in the ini (`0` = no menu). `Ctrl+F2` because the plain F-keys are taken in these games by other mods (TM Vibrant Shaders: F3, F6, F7, F8, F12; CenterSpeed: F5; this mod's own test key: F9). The key that opened the menu is held back from the game until it is released.
 
 ## What it does
+
+### Autosave
 
 | Mode | What gets saved |
 |---|---|
@@ -45,11 +71,9 @@ To remove it, delete `dinput8.dll` and `eswc_autosave.dll` (and the ini/log). De
 
 Replays go to `GameData\Tracks\Replays\My Replays\` as `<Track>(mm'ss''cc).Replay.Gbx` (stunts: `<Track>(score).Replay.Gbx`), the name the game itself suggests. Existing files are never overwritten (you get `… (2).Replay.Gbx` instead). Every save is logged with `[Solo]` or `[LAN]` plus a header check (`validable=1`).
 
-### Sunrise and Original
+Sunrise and Original: solo only: campaign and single tracks (the race classes `1P`, `1PGhosts`, `1PSpecial`). LAN and online races are never saved there, and neither are hot-seat and Crazy mode. With `Mode=best` (the default) a replay is saved only when the run is a new personal best on the map since the game started. The mod calls the game's own save code, the same calls "Save replay" makes after you press OK, so the replay and its `validable` flag are exactly what the game would write.
 
-Solo only: campaign and single tracks (the race classes `1P`, `1PGhosts`, `1PSpecial`). LAN and online races are never saved there, and neither are hot-seat and Crazy mode. With `Mode=best` (the default) a replay is saved only when the run is a new personal best on the map since the game started. The mod calls the game's own save code, the same calls "Save replay" makes after you press OK, so the replay and its `validable` flag are exactly what the game would write. The addresses were found by comparing with the ESWC code and checked twice each (see `src/games.h`, `src/legacy.cpp`); they have not been run in the game yet (status below).
-
-### TMX copy (servers with other players)
+### TMX copy (servers with other players, ESWC)
 
 A replay saved on a server holds a ghost for every player there, plus one for the server account on a dedicated server. The game marks such a file `validable="0"`: its rule is "exactly one ghost and recorded inputs". TM-Exchange does not accept it.
 
@@ -65,50 +89,97 @@ What it does **not** do: the game cannot re-validate network TimeAttack replays 
 
 No copy, logged as `[TMX] skipped: <reason>`, when the replay has no inputs (e.g. edited in MediaTracker), no ghost matches the inputs (e.g. the saved run is an unfinished attempt), it contains nodes the converter does not know, or it is not an ESWC replay. Solo saves and replays with one ghost are left alone, they are validable already.
 
-Each copy is written to a temp file, read back and checked (one ghost, inputs = ghost time, everything else unchanged) before it gets its name; existing files are never overwritten (`… TMX (2).Replay.Gbx`). The work runs in a background thread after the normal save, so the game does not wait for it. The in-game replay list shows the copy after its next refresh. Log line on success: `[TMX] SAVED: <path> ghosts 4->1 time=31190 validable=1`.
+Each copy is written to a temp file, read back and checked (one ghost, inputs = ghost time, everything else unchanged) before it gets its name; existing files are never overwritten (`… TMX (2).Replay.Gbx`). The work runs in a background thread after the normal save, so the game does not wait for it. Log line on success: `[TMX] SAVED: <path> ghosts 4->1 time=31190 validable=1`.
 
-### Online fix
+### Controller fix
+
+The games look for controllers once, at start. A pad plugged in or switched on later (an Xbox pad turned on during a race, a wheel plugged in after the menu) is not seen until a restart. The controller fix watches for new controllers and adds them the way the game adds a controller it finds at start: the game's own device setup, then the game's own bindings for that pad (the ones saved in your profile, or the game's defaults), also into the race that is running. A pad unplugged and plugged in again keeps its place and bindings. It never reads or sends input.
+
+Before it does anything it checks the game's input code byte for byte (6 code signatures and 5 table entries, plus 15 code signatures of the bindings code). If one differs, the fix stays off (`Unsupported` in the menu, the reason in the log); if only the bindings part differs, the pad is still added and gets its bindings in the game's input settings.
+
+This is the Horizon Client's controller fix (module "Controller fix" 1.2.0), the same code.
+
+### Login fix (ESWC, Original)
 
 Clicking "Internet" in ESWC on Windows 10/11 fails with error **12157**. The login server is still up, but it only speaks TLS 1.0 and its certificate expired in 2020, and Windows no longer allows TLS 1.0 by default. With `OnlineFix=1` the DLL allows TLS 1.0 and skips the revocation check **for the game process only**. Nothing system-wide changes, and requests and servers stay the same.
 
 The connection is weak by today's standards, so use a password for your ESWC account that you don't use anywhere else.
 
-TrackMania Original (Online Patch v2): the patch's readme asks you to allow TLS 1.0 and to turn off the revocation check in the Windows Internet Options, for the whole system. With `OnlineFix=1` the mod does the same two things for the game process only, at the exe's own `HttpOpenRequestA` import. Sunrise: no online fix (not known to need one, nothing changed).
+TrackMania Original (Online Patch v2): the patch's readme asks you to allow TLS 1.0 and to turn off the revocation check in the Windows Internet Options, for the whole system. With `OnlineFix=1` the mod does the same two things for the game process only, at the exe's own `HttpOpenRequestA` import. Sunrise: no login fix (not known to need one, nothing changed).
+
+This is the Horizon Client's login fix, the same code.
+
+### Online safety
+
+Nothing here sends input, changes physics or touches a race. Autosave calls the game's own save after the finish; the controller fix only does what the game does for a controller it finds at start; the login fix changes two connection settings of the game's own HTTPS requests; the menu draws on top of the picture and holds back keyboard and mouse only while it is open.
+
+## With the Horizon Client
+
+The Horizon Client (its loader `dinput8.dll` + `horizon\host.dll`) has the controller fix, the login fix and its own menu. Legacy Essentials steps aside for them, so nothing is hooked twice:
+
+| | Horizon Client present |
+|---|---|
+| Autosave | Legacy Essentials (the client's Autosave module pauses itself when it finds `eswc_autosave.dll`) |
+| Controller fix | the client's module (whoever starts first claims it; the client's module starts first) |
+| Login fix | the client's (`OnlineFix` in the client's settings) |
+| Menu | the client's (`Insert`); Legacy Essentials draws nothing |
+
+Install: rename Legacy Essentials' `dinput8.dll` to `dinput8.chain.dll` and put it next to the client's `dinput8.dll`, with `eswc_autosave.dll` and the ini. The log then says `Horizon Client expected` at start and `Horizon Client runs` on the first message. If the client does not start (Ctrl+Shift held at start), Legacy Essentials runs its login fix and controller fix itself; its menu stays off for that start.
 
 ## Settings (`eswc_autosave.ini`)
 
-| Key | Default | |
-|---|---|---|
-| `Enabled` | `1` | autosave on/off |
-| `Mode` | `best` | `best` = only new personal bests on the track (since game start), `all` = every finish |
-| `TestKey` | `0x78` (F9) | save right now, `0` = off |
-| `ScanReplays` | `1` | refresh the in-game replay list after saving |
-| `TmxCopy` | `1` | write the TMX copy after LAN/online saves (ESWC only) |
-| `OnlineFix` | `1` | online login fix on/off (ESWC and Original) |
+| Section | Key | Default | |
+|---|---|---|---|
+| `[autosave]` | `Enabled` | `1` | autosave on/off (menu) |
+| | `Mode` | `best` | `best` = only new personal bests on the track (since game start), `all` = every finish (menu) |
+| | `TestKey` | `0x78` (F9) | save right now, `0` = off |
+| | `ScanReplays` | `1` | refresh the in-game replay list after saving |
+| | `TmxCopy` | `1` | write the TMX copy after LAN/online saves (ESWC only) |
+| `[online]` | `OnlineFix` | `1` | login fix on/off (ESWC and Original; next start) (menu) |
+| `[controller]` | `ControllerFix` | `1` | controller fix on/off (menu) |
+| `[menu]` | `MenuKey` | `Ctrl+F2` | menu key, `0` = no menu |
 
 ## Status
 
-Version 1.2.0. ESWC: tested on Windows 11: solo campaign, LAN with nostalgic-completionist, online server and the online login. Not covered: hotseat/split-screen modes.
-
-Sunrise and Original: built and tested against a fake game image (`build\test\legacy_test.exe`: the real prologues, the game's calls as stubs, the hook route of the real DLL) and against the real exes on disk (hash, prologues, addresses); not yet run in the game. Until a first in-game test the log is the place to look: `build: TmSunrise … recognised`, `hook: … installed` (twice), `ready (Sunrise)`, then `[Solo] SAVED (finish): …` after a new best.
-
-## Changes
-
-- 1.2.0: TrackMania Sunrise (Win10 repack) and TrackMania Original (Online Patch v2 exe): solo autosave; online fix also for Original. The exe is now also checked by its file size.
-- 1.1.0: TMX copy for LAN/online replays.
-- 1.0.1: split into a small loader (`dinput8.dll`) and the mod (`eswc_autosave.dll`). Behaviour unchanged.
-- 1.0.0: first release.
+Version 1.3.0. Autosave on ESWC: tested on Windows 11 (solo, LAN with nostalgic-completionist, online server, login). Sunrise and Original autosave: tested against a fake game image and the real exes on disk; not yet in a real race. Controller fix and login fix: the Horizon Client's code; in the client the controller fix is in test, the login fix is tested on ESWC. The menu: tested on a Direct3D 9 test window (`build\test\menu_test.exe`), not yet in the games.
 
 ## How it works
 
-The game loads `dinput8.dll` from its own folder before the system one. The loader in it forwards DirectInput to the system DLL and, the first time the game creates DirectInput (main thread, before any race), loads `eswc_autosave.dll` and calls its `EswcAutosaveInit`. The mod then checks the exe (size, timestamp, hash) and installs a few small hooks: the finish line, the moment the game stops recording and keeps a copy of the run (LAN, ESWC), and the solo race end. After a finish it calls the game's own synchronous save routine on the game thread, i.e. the same steps "Save replay" does after you press OK. Addresses are documented in `src/autosave.cpp` (ESWC) and `src/games.h` / `src/legacy.cpp` (Sunrise, Original).
+The game loads `dinput8.dll` from its own folder before the system one. The loader in it forwards DirectInput to the system DLL (or `dinput8.chain.dll`) and, after the game first creates DirectInput (main thread, before any race), loads `eswc_autosave.dll` and calls its `EswcAutosaveInit`. The mod checks the exe (size, timestamp, hash), reads the ini and starts each part:
+
+- autosave: a few small hooks on the game's code (finish line, the moment the game keeps a copy of the run, the solo race end), then the game's own synchronous save on the game thread. Addresses: `src/autosave.cpp` (ESWC), `src/games.h` / `src/legacy.cpp` (Sunrise, Original).
+- login fix and controller fix: on the game thread's first message (by then the Horizon Client, if there, has started). `src/essentials.cpp`, `src/controller.cpp`.
+- menu: Direct3D 9 method-table hooks (CreateDevice, Present, Reset) and the game window's message procedure; Dear ImGui draws it. `src/overlay.cpp`.
+
+## Code shared with the Horizon Client
+
+The login fix, the controller fix and Dear ImGui are the Horizon Client's files, copied unchanged into `vendor/horizon/` from one commit of the client's repo (`vendor/horizon/source.h` names it). A fix is made in the client first and brought over with
+
+```
+powershell -ExecutionPolicy Bypass -File tools/sync-horizon.ps1 -Commit <commit>
+```
+
+`tools/sync-horizon.ps1 -Check` confirms that every vendored file is byte for byte the client's file at that commit (`test/run_tests.cmd` runs it). `src/shim/host/host.h` gives the client's `onlinefix.cpp` this mod's log; `src/controller.cpp` is the glue the client's standalone controller build also has.
 
 ## Build
 
-`build.cmd` (MSVC Build Tools, x86) builds `dist\dinput8.dll` and `dist\eswc_autosave.dll`. `build\test\legacy_test.exe` runs the Sunrise/Original autosave against a fake game image (with `legacy_test.exe <exe> sunrise|original|eswc …` it also checks real exes, read only: hash, size, timestamp, hook prologues, address ranges). `test\run_harness.cmd` loads the loader into a small test program twice: with `eswc_autosave.dll` next to it (DirectInput works, the log reports an unknown exe) and without it (DirectInput works, no log).
+`build.cmd` (MSVC Build Tools, x86) builds `dist\dinput8.dll`, `dist\eswc_autosave.dll` and the tests; `test\run_tests.cmd [folder with the three exes]` runs them:
 
-`build\test\tmxcopy_test.exe <outdir> [--login L] [--time ms] [--ref DIR] <replays…>` runs the TMX-copy conversion of the DLL on replay files and writes the copies to `<outdir>`; the inputs are only read. It prints a summary of input and output (ghosts, times, EventsDuration, validable, mode) and, with `--ref`, compares each copy byte for byte with `<DIR>\<name> solo.Replay.Gbx`. No replays are in the repo (they contain other players' names).
+| Test | |
+|---|---|
+| `essentials_test` | menu key, ini read/write-back, the Horizon Client plan |
+| `hp_tests` | the client's controller-fix unit tests, on the vendored code |
+| `menu_test` | the real overlay on a Direct3D 9 test window: hooks, `Ctrl+F2`, drawing, keyboard toggles written to the ini, toast (writes `menu_test.bmp`) |
+| `legacy_test` | Sunrise/Original autosave against a fake game image; with exes also hash, prologues, addresses |
+| `realexe_test` | the vendored controller fix's code checks and the login fix's import slots against the real exes (read only) |
+| `tmxcopy_test <outdir> [--login L] [--time ms] [--ref DIR] <replays…>` | the TMX-copy conversion on replay files |
+| `onlinetest` | the login fix inside a test exe, one real HTTPS request to the ESWC server (by hand) |
+| `test\run_harness.cmd` | the loader in a test program: with and without the mod, with a `dinput8.chain.dll`, and as `dinput8.chain.dll` itself |
+
+## Changes
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
-MIT
+MIT. `vendor/horizon/imgui` is Dear ImGui (MIT, see its `LICENSE.txt`).

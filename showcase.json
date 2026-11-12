@@ -1,37 +1,53 @@
 {
   "version": 1,
-  "theme": { "accent": "green" },
+  "theme": { "accent": "orange" },
   "blocks": [
     {
       "type": "hero",
-      "title": "ESWC Autosave",
-      "tagline": "Every finish saved as a replay, and the online login error 12157 fixed, for TrackMania Nations ESWC.",
-      "badges": ["TMN ESWC 1.80", "Replays", "Online fix"]
+      "title": "Legacy Essentials",
+      "tagline": "Autosave, controller fix, login fix and a small menu for TrackMania Nations ESWC, Sunrise and Original.",
+      "badges": ["ESWC, Sunrise, Original", "No installer", "Online-safe"]
     },
     {
       "type": "features",
       "items": [
-        { "icon": "save", "title": "Replays on their own", "text": "Every finish is saved as a normal .Replay.Gbx, without clicking Save replay." },
-        { "icon": "share-2", "title": "TMX copy", "text": "On servers a second file keeps only your ghost and inputs, ready for TMX." },
-        { "icon": "globe", "title": "Online login fixed", "text": "Clicking Internet fails with error 12157 on Windows 10 and 11. The fix is for the game process only." },
-        { "icon": "cpu", "title": "A tiny loader", "text": "A 4 KB dinput8.dll passes every DirectInput call on and loads the mod. Nothing else." }
+        { "icon": "save", "title": "Replays on their own", "text": "Every finish is saved as a normal .Replay.Gbx, without clicking Save replay. Best times only, or every finish." },
+        { "icon": "gamepad-2", "title": "Controller fix", "text": "A pad plugged in or switched on mid-race works at once, with the game's own bindings for it." },
+        { "icon": "globe", "title": "Online login fixed", "text": "ESWC and Original: the login works again on Windows 10 and 11 (error 12157). For the game process only." },
+        { "icon": "sliders-horizontal", "title": "Small menu", "text": "Ctrl+F2 switches each part on or off and opens the replay folder. Settings stay in the ini." },
+        { "icon": "share-2", "title": "TMX copy", "text": "ESWC servers: a second file keeps only your ghost and inputs, ready for TMX." },
+        { "icon": "puzzle", "title": "Fits the Horizon Client", "text": "With the Horizon Client it steps aside for the client's login fix, controller fix and menu." }
+      ]
+    },
+    {
+      "type": "hotkeys",
+      "rows": [
+        { "keys": "Ctrl+F2", "action": "Open or close the menu" },
+        { "keys": "Esc", "action": "Close the menu" },
+        { "keys": "F9", "action": "Save the last replay now" }
       ]
     },
     {
       "type": "text",
       "title": "Requirements",
-      "markdown": "It works with **one exe only**: the unofficial community patch of **TrackMania Nations ESWC 1.80** (the StarForce-free `TmNationsESWC.exe`, in-game version 0.1.7.9). With any other exe the mod does nothing and says so in its log."
+      "markdown": "It works with **these exes only**: the unofficial community patch of **TrackMania Nations ESWC 1.80** (`TmNationsESWC.exe`, in-game version 0.1.7.9), the **TrackMania Sunrise** Win10 community repack (`TmSunrise.exe`) and **TrackMania Original** with the Online Patch v2 exe (`TMORIGINAL.EXE`). With any other exe the mod does nothing and says so in its log."
     },
     {
       "type": "compat",
-      "rows": [{ "game": "eswc", "status": "works", "note": "Unofficial 1.80 patch only" }]
+      "rows": [
+        { "game": "eswc", "status": "works", "note": "Unofficial 1.80 patch only" },
+        { "game": "tms", "status": "partial", "note": "Win10 repack; autosave solo only" },
+        { "game": "tmo", "status": "partial", "note": "Online Patch v2 exe; autosave solo only" }
+      ]
     },
     {
       "type": "faq",
       "items": [
-        { "q": "Where do the replays go?", "a": "Into GameData\\Tracks\\Replays\\My Replays, named after the track and the time. Existing files are never overwritten." },
-        { "q": "There is no eswc_autosave.log after starting the game.", "a": "Then eswc_autosave.dll is missing or could not be loaded, and the game runs without the mod. Copy dinput8.dll, eswc_autosave.dll and eswc_autosave.ini next to TmNationsESWC.exe." },
-        { "q": "Does the online fix change Windows?", "a": "No. It allows TLS 1.0 and skips the revocation check for the game process only. Use a password for your ESWC account that you do not use anywhere else." }
+        { "q": "Where do the replays go?", "a": "Into GameData\\Tracks\\Replays\\My Replays, named after the track and the time. Existing files are never overwritten. The menu's Open folder button opens it." },
+        { "q": "There is no eswc_autosave.log after starting the game.", "a": "Then eswc_autosave.dll is missing or could not be loaded, and the game runs without the mod. Copy dinput8.dll, eswc_autosave.dll and eswc_autosave.ini next to the game exe." },
+        { "q": "Another mod already has a dinput8.dll.", "a": "Rename that one to dinput8.chain.dll, then copy the three files. Legacy Essentials passes DirectInput on to it." },
+        { "q": "I use the Horizon Client.", "a": "Rename Legacy Essentials' dinput8.dll to dinput8.chain.dll next to the client's dinput8.dll. The client then runs the login fix, controller fix and menu; Legacy Essentials keeps the autosave." },
+        { "q": "Is it safe online?", "a": "It sends no input and changes no physics. The login fix allows TLS 1.0 and skips the revocation check for the game process only; use a password for your ESWC account that you do not use anywhere else." }
       ]
     },
     {

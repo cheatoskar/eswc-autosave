@@ -1,4 +1,4 @@
-// Runs the real online fix code (src/online.cpp) inside a test exe: its own import slot of
+// Runs the real login fix code (vendor/horizon/host/onlinefix.cpp, the Horizon Client's) inside a test exe: its own import slot of
 // HttpOpenRequestA stands in for the game's slot 0x00aca340. Then a read-only GET of the public
 // server list over HTTPS, opened the way the game opens it. Expect "HTTP 200" with the fix and 12157
 // without it (argument 0). Log: eswc_autosave.log next to this exe.
@@ -8,7 +8,7 @@
 #include <stdlib.h>
 
 #include "../src/log.h"
-#include "../src/online.h"
+#include "../src/shim/host/host.h"
 
 static void** findIatSlot(const char* dll, const char* func) {
     BYTE* base = reinterpret_cast<BYTE*>(GetModuleHandleW(nullptr));
@@ -36,7 +36,7 @@ int main(int argc, char** argv) {
             printf("no import slot\n");
             return 2;
         }
-        autosave::onlineFixInstall(reinterpret_cast<uintptr_t>(slot) - 0x00aca340 + 0x00400000, 0x00aca340);
+        horizon::onlineFixInstall(reinterpret_cast<uintptr_t>(slot) - 0x00aca340 + 0x00400000, 0x00aca340);
     }
     HINTERNET s = InternetOpenA("GameBox", 0, nullptr, nullptr, 0);
     HINTERNET c = InternetConnectA(s, "game.trackmanianations.com", 443, nullptr, nullptr, INTERNET_SERVICE_HTTP, 0, 0);
