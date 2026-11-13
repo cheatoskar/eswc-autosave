@@ -1,3 +1,5 @@
+<img src="docs/logo/logo.svg" width="96" align="right" alt="Legacy Essentials logo">
+
 # Legacy Essentials
 
 Small fixes for the old TrackMania games: **TrackMania Nations ESWC**, **TrackMania Sunrise** and **TrackMania Original** (formerly "eswc-autosave").
