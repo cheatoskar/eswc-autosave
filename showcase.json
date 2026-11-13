@@ -53,8 +53,8 @@
     {
       "type": "cta",
       "buttons": [
-        { "kind": "link", "label": "Download", "url": "https://github.com/cheatoskar/eswc-autosave/releases/latest" },
-        { "kind": "link", "label": "README", "url": "https://github.com/cheatoskar/eswc-autosave/blob/main/README.md", "style": "ghost" }
+        { "kind": "link", "label": "Download", "url": "https://github.com/cheatoskar/legacy-essentials/releases/latest" },
+        { "kind": "link", "label": "README", "url": "https://github.com/cheatoskar/legacy-essentials/blob/main/README.md", "style": "ghost" }
       ]
     }
   ]
