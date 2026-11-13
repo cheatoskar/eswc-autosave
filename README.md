@@ -35,7 +35,7 @@ The file names stay as they were in eswc-autosave, so updating keeps your ini an
 ## Install
 
 1. Close the game.
-2. Download the zip from [Releases](../../releases) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to the game exe (`TmNationsESWC.exe`, `TmSunrise.exe` or `TMORIGINAL.EXE`).
+2. Download the zip for your game from [Releases](../../releases) (`eswc-autosave-<version>-ESWC.zip`, `-Sunrise.zip` or `-Original.zip`; the old file prefix stays so the TM Horizon launcher finds it) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to the game exe (`TmNationsESWC.exe`, `TmSunrise.exe` or `TMORIGINAL.EXE`).
    - Another mod's `dinput8.dll` already there: rename it to `dinput8.chain.dll` first. The loader passes DirectInput on to it, so that mod keeps working.
    - With the Horizon Client: see [With the Horizon Client](#with-the-horizon-client).
 3. Start the game. `eswc_autosave.log` appears in the game folder and should contain `recognised, sha256 ok` and `ready`. `Ctrl+F2` opens the menu.
