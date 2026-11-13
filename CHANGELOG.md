@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.1
+
+- No Sounds slider: the games' own options have Volume and Music only, and the slider was not heard on ESWC. A `Sounds=` value in the ini is no longer put into the game. The Horizon Client's Game settings 1.1.1, the same code.
+
 ## 1.3.0: Legacy Essentials
 
 New name: **Legacy Essentials** (formerly eswc-autosave). File names stay (`dinput8.dll`, `eswc_autosave.dll`, `eswc_autosave.ini`), your ini keeps working.

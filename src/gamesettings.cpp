@@ -1,4 +1,4 @@
-// Volume, Music, Sounds, Window mode (gamesettings.h).
+// Volume, Music, Window mode (gamesettings.h); no Sounds row on these games (gs::soundsSliderSupported).
 #include "gamesettings.h"
 
 #include <float.h>
@@ -107,7 +107,8 @@ void start(uintptr_t exeBase, uint32_t exeTimestamp, const Settings& s, bool app
         if (apply) {
             gs::Prefs p;
             p.music = s.music;
-            p.sounds = s.sounds;
+            // no Sounds on these games (gs::soundsSliderSupported): a Sounds= value from 1.3.0 stays unused
+            p.sounds = gs::soundsSliderSupported(t) ? s.sounds : -1;
             p.window = s.windowMode;
             if (p.music < 0 && p.sounds < 0 && p.window < 0) AS_LOG("game settings: nothing chosen in the ini, the game's own values stay");
             else g_game->applyStart(p);
@@ -134,7 +135,7 @@ void drawRows(const wchar_t* ini, float scale) {
             AS_LOG("menu: volume %d%% (Windows audio session)", pct);
     }
     volumeRow(ini, scale, "Music", "##le-music", true);
-    volumeRow(ini, scale, "Sounds", "##le-sounds", false);
+    if (g_game && gs::soundsSliderSupported(g_game->table())) volumeRow(ini, scale, "Sounds", "##le-sounds", false);
 
     // Window mode: the game's own switch, between two frames
     bool fs = false;

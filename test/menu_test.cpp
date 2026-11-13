@@ -285,9 +285,8 @@ int wmain() {
     check(wcscmp(mode, L"all") == 0, "Best times only switched off (Mode=all)");
     key(VK_SPACE, false);
 
-    // from the bottom (End: "Close"), Up: Window mode, Sounds, Music
+    // from the bottom (End: "Close"), Up: Window mode, Music (no Sounds row since 1.3.1)
     key(VK_END, false);
-    key(VK_UP, false);
     key(VK_UP, false);
     key(VK_UP, false);
     key(VK_SPACE, false); // a slider takes the arrows once activated (ImGui keyboard navigation) ...
@@ -302,12 +301,11 @@ int wmain() {
     printf("      first step: port %.3f; ini while dragging: %u\n", firstStep, iniWhileDragging);
     check(firstStep > 0.585f && firstStep < 0.595f, "Music: the first step is applied at once (59%)");
     check(iniWhileDragging == 999, "Music: the ini is not written while dragging");
-    key(VK_DOWN, false); // Sounds
     const UINT musicIni = GetPrivateProfileIntW(L"sound", L"Music", 999, ini);
     printf("      after 3x Left on Music: port %.3f, config %.3f, ini Music=%u\n", musicPort, musicCfg, musicIni);
     check(musicPort > 0.565f && musicPort < 0.575f && musicCfg == musicPort, "Music 60% -> 57% in the game's audio port and config");
     check(musicIni == 57, "Music=57 written to the ini");
-    check(FakeGame::getF(fake.port + 0x14) == 0.8f, "Sounds untouched");
+    check(FakeGame::getF(fake.port + 0x14) == 0.8f, "Sounds untouched (no Sounds row)");
     // Window mode: Down to the combo, Space opens it, Down + Space picks Fullscreen
     key(VK_DOWN, false);
     key(VK_SPACE, false);
@@ -322,7 +320,7 @@ int wmain() {
     printf("      window mode: viewport fullscreen=%u, config FullScreen=%u, ini WindowMode=%ls\n", fsLive, fsNow, wm);
     check(fsLive == 1, "Window mode Fullscreen: the game's own StartFullscreen ran (between two frames)");
     check(fsNow == 1 && wcscmp(wm, L"fullscreen") == 0, "Window mode Fullscreen: the config and the ini follow");
-    key(VK_UP, false); // to Sounds for the screenshot
+    key(VK_UP, false); // to Music for the screenshot
     changed = capture(bmp1, center, &inArea); // keep this one: the menu as the player sees it
 
     key(VK_ESCAPE, false);

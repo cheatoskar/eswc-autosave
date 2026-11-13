@@ -290,7 +290,7 @@ void drawMenu(bool* open) {
         else status(g_loginActive ? "On" : "Off");
     }
 
-    // Volume, Music, Sounds, Window mode
+    // Volume, Music, Window mode
     ImGui::Separator();
     gamesettings::drawRows(g_ini, s);
 

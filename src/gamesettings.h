@@ -1,5 +1,5 @@
 #pragma once
-// Volume, Music, Sounds and Window mode in this mod: the glue around the Horizon Client's game-settings code
+// Volume, Music and Window mode in this mod (no Sounds: gs::soundsSliderSupported): the glue around the Horizon Client's game-settings code
 // (vendor/horizon/game-settings, the same files the client's Game settings module uses; how it works: gs_game.h).
 // The chosen values are kept in the ini ([sound] Music, Sounds; [display] WindowMode) and written into the
 // game's own settings at every start. Volume is the game's Windows audio session (Windows remembers it).

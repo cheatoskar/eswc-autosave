@@ -5,7 +5,7 @@ Small fixes for the old TrackMania games: **TrackMania Nations ESWC**, **TrackMa
 - **Autosave**: every finish is saved as a normal `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. The old games only keep a ghost of your best run in `Autosaves` (not validable); this saves the full replay. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
 - **Controller fix**: a controller plugged in or switched on while the game runs works at once, with the game's own bindings for it. Without it the game only sees controllers that were there at start.
 - **Login fix** (ESWC, Original): the online login works again on Windows 10/11 (error 12157).
-- **Volume, Music, Sounds, Window mode**: change them in the game, like in the launcher's settings. Each changes at once.
+- **Volume, Music, Window mode**: change them in the game, like in the launcher's settings. Each changes at once.
 - **Menu**: `Ctrl+F2` in the game switches each of these on or off.
 
 Three files next to the game exe, no installer, no other program needed.
@@ -58,7 +58,7 @@ To remove it, delete `dinput8.dll` and `eswc_autosave.dll` (and the ini/log), an
 | Controller fix | on/off; status `On`, the number of pads it added, or `Unsupported` (the game code is not the one it knows) |
 | Login fix | ESWC and Original; a change takes effect at the next start (`Restart game`) |
 | Volume | the game's volume in Windows (the same slider as the game in the Windows volume mixer) |
-| Music, Sounds | the game's own music and sound volume, heard at once |
+| Music | the game's own music volume, heard at once |
 | Window mode | `Windowed` or `Fullscreen`, switched at once |
 | Version, game, menu key | |
 
@@ -113,11 +113,11 @@ TrackMania Original (Online Patch v2): the patch's readme asks you to allow TLS 
 
 This is the Horizon Client's login fix, the same code.
 
-### Volume, Music, Sounds, Window mode
+### Volume, Music, Window mode
 
 The three games keep music volume, sound volume and fullscreen in their settings file (`Default.SystemConfig.Gbx`, written by the launcher's settings dialog). At start the game reads it, makes the window and Direct3D device from it, and hands the two volumes to its sound code, which uses them for every sound and the music each frame.
 
-- **Music** and **Sounds** change those two values in the running game (the settings and the sound code's copy, as the game's own start does), so you hear the change at once.
+- **Music** changes that value in the running game (the settings and the sound code's copy, as the game's own start does), so you hear the change at once. There is no Sounds slider since 1.3.1: the games' own options have Volume and Music only, and it was not heard on ESWC.
 - **Window mode** uses the game's own switch: the same functions the game calls at start when its settings say fullscreen, and that its (hidden) developer command "ToggleFullscreen" calls while it runs. They keep the window's size and place for the way back, and use the fullscreen resolution of the launcher's settings. The switch runs between two frames, where the game's window procedure runs. The fullscreen setting follows, so the next start uses the same mode.
 - **Volume**: the games have no master volume, so this is the game's volume in Windows (Windows remembers it for the game).
 
@@ -138,7 +138,7 @@ The Horizon Client (its loader `dinput8.dll` + `horizon\host.dll`) has the contr
 | Autosave | Legacy Essentials (the client's Autosave module pauses itself when it finds `eswc_autosave.dll`) |
 | Controller fix | the client's module (whoever starts first claims it; the client's module starts first) |
 | Login fix | the client's (`OnlineFix` in the client's settings) |
-| Volume, Music, Sounds, Window mode | the client's Game settings module (its own saved values); with an older client without that module, Legacy Essentials still puts the ini's values into the game at start |
+| Volume, Music, Window mode | the client's Game settings module (its own saved values); with an older client without that module, Legacy Essentials still puts the ini's values into the game at start |
 | Menu | the client's (`Insert`); Legacy Essentials draws nothing |
 
 Install: rename Legacy Essentials' `dinput8.dll` to `dinput8.chain.dll` and put it next to the client's `dinput8.dll`, with `eswc_autosave.dll` and the ini. The log then says `Horizon Client expected` at start and `Horizon Client runs` on the first message. If the client does not start (Ctrl+Shift held at start), Legacy Essentials runs its login fix and controller fix itself; its menu stays off for that start.
@@ -156,12 +156,12 @@ Install: rename Legacy Essentials' `dinput8.dll` to `dinput8.chain.dll` and put 
 | `[controller]` | `ControllerFix` | `1` | controller fix on/off (menu) |
 | `[menu]` | `MenuKey` | `Ctrl+F2` | menu key, `0` = no menu |
 | `[sound]` | `Music` | empty | music volume `0`-`100`, empty = the game's own (menu) |
-| | `Sounds` | empty | sound volume `0`-`100`, empty = the game's own (menu) |
+| | `Sounds` | empty | not used since 1.3.1 |
 | `[display]` | `WindowMode` | empty | `windowed` or `fullscreen` at start, empty = the game's own (menu) |
 
 ## Status
 
-Version 1.3.0. Autosave on ESWC: tested on Windows 11 (solo, LAN with nostalgic-completionist, online server, login). Sunrise and Original autosave: tested against a fake game image and the real exes on disk; not yet in a real race. Controller fix and login fix: the Horizon Client's code; in the client the controller fix is in test, the login fix is tested on ESWC. The menu: tested on a Direct3D 9 test window (`build\test\menu_test.exe`), not yet in the games. Volume, Music, Sounds, Window mode: from a study of the three exes, checked against them on disk and against a fake game; not yet in the games.
+Version 1.3.1. Autosave on ESWC: tested on Windows 11 (solo, LAN with nostalgic-completionist, online server, login). Sunrise and Original autosave: tested against a fake game image and the real exes on disk; not yet in a real race. Controller fix and login fix: the Horizon Client's code; in the client the controller fix is in test, the login fix is tested on ESWC. The menu: tested on a Direct3D 9 test window (`build\test\menu_test.exe`), not yet in the games. Volume, Music, Window mode: from a study of the three exes, checked against them on disk and against a fake game; not yet in the games.
 
 ## How it works
 

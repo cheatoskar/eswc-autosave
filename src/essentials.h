@@ -9,7 +9,7 @@
 
 namespace autosave {
 
-constexpr char kProductVersion[] = "1.3.0";
+constexpr char kProductVersion[] = "1.3.1";
 
 // autosave.cpp: the autosave hooks and their switches (game thread).
 bool autosaveInstall();            // idempotent; false: hooks could not be installed (logged)
