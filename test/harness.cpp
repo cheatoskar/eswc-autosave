@@ -35,5 +35,10 @@ int wmain(int argc, wchar_t** argv) {
     using FnJ = const void*(WINAPI*)();
     FnJ j = reinterpret_cast<FnJ>(GetProcAddress(m, "GetdfDIJoystick"));
     printf("GetdfDIJoystick() = %p\n", j ? j() : nullptr);
+    printf("LegacyEssentialsLoader %s\n", GetProcAddress(m, "LegacyEssentialsLoader") ? "ok" : "MISSING");
+    // chain: a dinput8.chain.dll next to the loader is loaded and gets the DirectInput calls
+    HMODULE chain = GetModuleHandleW(L"dinput8.chain.dll");
+    printf("dinput8.chain.dll %s\n", chain ? (chain == m ? "is this loader" : "loaded (chained)") : "not loaded");
+    printf("eswc_autosave.dll %s\n", GetModuleHandleW(L"eswc_autosave.dll") ? "loaded" : "not loaded");
     return (hr == S_OK && di) ? 0 : 2;
 }
