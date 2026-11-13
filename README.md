@@ -2,7 +2,7 @@
 
 # Legacy Essentials
 
-Small fixes for the old TrackMania games: **TrackMania Nations ESWC**, **TrackMania Sunrise** and **TrackMania Original** (formerly "eswc-autosave").
+**Small fixes for the old TrackMania games: TrackMania Nations ESWC, TrackMania Sunrise and TrackMania Original** (formerly "eswc-autosave").
 
 - **Autosave**: every finish is saved as a normal `.Replay.Gbx`, the same file you get from "Save replay" / "Save previous replay", just without clicking. The old games only keep a ghost of your best run in `Autosaves` (not validable); this saves the full replay. Made for [100% TMX](https://tm-exchange.com) runs together with [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist), but it works on its own too.
 - **Controller fix**: a controller plugged in or switched on while the game runs works at once, with the game's own bindings for it. Without it the game only sees controllers that were there at start.
@@ -10,7 +10,34 @@ Small fixes for the old TrackMania games: **TrackMania Nations ESWC**, **TrackMa
 - **Volume, Music, Window mode**: change them in the game, like in the launcher's settings. Each changes at once.
 - **Menu**: `Ctrl+F2` in the game switches each of these on or off.
 
-Three files next to the game exe, no installer, no other program needed.
+Three files next to the game exe, no installer, no other program needed. The same features are also part of the [Horizon Client](https://github.com/cheatoskar/horizon-client) (its "Legacy Essentials" group); you need only one of the two, see [With the Horizon Client](#with-the-horizon-client).
+
+Version 1.3.1. MIT licence. The repository is still named `eswc-autosave`; a rename to `legacy-essentials` is planned ([docs/rename-legacy-essentials.md](docs/rename-legacy-essentials.md)).
+
+**[Download the latest release](https://github.com/cheatoskar/eswc-autosave/releases/latest)** · [Games](#what-works-in-which-game) · [Install](#install) · [Menu](#menu) · [What it does](#what-it-does) · [With the Horizon Client](#with-the-horizon-client) · [Settings](#settings-eswc_autosaveini) · [Known issues](#known-issues) · [Build](#build) · [TM Horizon family](#tm-horizon-family)
+
+---
+
+## TM Horizon family
+
+Six projects by the same author, made to work together. TM Horizon installs and updates the others where it can; each one also works without it.
+
+| Project | What it is | Games | How to get it | Repo |
+|---|---|---|---|---|
+| **TM Horizon** | Launcher for every TrackMania game on Windows: library, mods, maps, servers, statistics. Installs and updates Horizon Client, Legacy Essentials and TM Vibrant Shaders. | All, from TrackMania (2003) to Trackmania (2020) | Installer from the releases (0.5.1, Launcher Preview) | [cheatoskar/tm-horizon](https://github.com/cheatoskar/tm-horizon) |
+| **Horizon Client** | In-game menu and mod loader with modules: Legacy Essentials, TMX Browser, TMX Upload, WR Hunter, Input Display, Horizon Performance, Horizon Scripts. | ESWC, Sunrise, Original; TMNF and TMUF through TMLoader (experimental) | TM Horizon (game page), or a zip per game (0.3.1) | [cheatoskar/horizon-client](https://github.com/cheatoskar/horizon-client) |
+| **Legacy Essentials** (this repo) | Autosave, controller fix, login fix and game settings. A standalone `dinput8.dll` mod with its own menu (`Ctrl+F2`). The same features are the "Legacy Essentials" group in Horizon Client. | ESWC, Sunrise, Original | A zip per game (1.3.1); TM Horizon installs it on ESWC | [cheatoskar/eswc-autosave](https://github.com/cheatoskar/eswc-autosave) |
+| **Legacy Randomizer** | Random Map Challenge with maps from TMX, inside the game. A Horizon Client module. | ESWC, Sunrise, Original (solo) | A zip with Horizon Client, or the plugin alone (0.3.1) | [cheatoskar/legacy-randomizer](https://github.com/cheatoskar/legacy-randomizer) |
+| **TM Vibrant Shaders** | Lighting, weather, skies, photos, clips and video export. Standalone, or as four Horizon Client modules. | TMNF, TMUF, TM2; ESWC, Sunrise, Original experimental | Setup or ModLoader server (1.6.0), Horizon modules zip (2.0.0); TM Horizon installs it on TMNF, TMUF and ESWC | [cheatoskar/TM-Vibrant-Shaders](https://github.com/cheatoskar/TM-Vibrant-Shaders) |
+| ***For developers*** | | | | |
+| **trackmania-internals** | Notes for mod developers: addresses, structures, file formats and physics of the games. | TMNF, TMUF, ESWC, Sunrise, Original, ManiaPlanet | Read it on GitHub | [cheatoskar/trackmania-internals](https://github.com/cheatoskar/trackmania-internals) |
+
+TMNF/TMUF = TrackMania Nations/United Forever, ESWC = TrackMania Nations ESWC, TM2 = TrackMania 2 (ManiaPlanet).
+
+- **Legacy Essentials or Horizon Client:** one is enough. Horizon Client has the same features in its "Legacy Essentials" group. With both in one game, the standalone keeps the autosave (the client's Autosave module pauses itself and logs `standalone ESWC Autosave found (eswc_autosave.dll): module paused`), and the login fix, controller fix, game settings and menu are the client's.
+- **TM Vibrant Shaders standalone or as Horizon modules:** one of the two. With both installed, the one the game loads first runs and the other stays off.
+
+---
 
 ## Requirements
 
@@ -22,7 +49,23 @@ This only works with these exact exes (file size, PE timestamp and SHA-256 must 
 | TrackMania Sunrise, Win10 community repack | `TmSunrise.exe`, 7,904,768 bytes | `e59dfc7eaa5314e85b2b0df6f40ef7ba01a23bd5a9525f84407f5dff301df4fe` |
 | TrackMania Original, "Online Patch v2" exe (2023) | `TMORIGINAL.EXE`, 7,883,264 bytes | `75e129d769f4595ddde54a8ef484162915bc2bf998c1a2139cc963294fe8175e` |
 
-With any other exe the mod does nothing (DirectInput is still passed through), and says so in its log.
+With any other exe the mod does nothing (DirectInput is still passed through), and says so in its log. No StarForce versions. Not for TrackMania Nations/United Forever, TrackMania 2 or Trackmania (2020).
+
+## What works in which game
+
+✓ = works and tested in the game, experimental = checked against the exes (and a fake game), not fully tested in a real game yet, – = not available. Details in [Status](#status).
+
+| | ESWC | Sunrise | Original |
+|---|---|---|---|
+| Autosave, solo | ✓ | experimental | experimental |
+| Autosave, LAN and online (your previous run) | ✓ | – | – |
+| TMX copy of LAN/online replays | ✓ | – | – |
+| Controller fix | experimental | experimental | experimental |
+| Login fix (error 12157) | ✓ | – (not known to be needed) | experimental |
+| Volume, Music, Window mode | experimental | experimental | experimental |
+| Menu (`Ctrl+F2`) | experimental | experimental | experimental |
+
+TrackMania Sunrise has no online servers any more.
 
 ## Files
 
@@ -36,8 +79,14 @@ The file names stay as they were in eswc-autosave, so updating keeps your ini an
 
 ## Install
 
+**With TM Horizon (ESWC):** the [TM Horizon](https://github.com/cheatoskar/tm-horizon) launcher installs, updates, removes and restores Legacy Essentials on the ESWC game page (shown there as "ESWC Autosave"), with a backup of every file it replaces. It is only offered for copies without the Horizon Client. Sunrise and Original: install by hand.
+
+**Instead with the Horizon Client:** install the [Horizon Client](https://github.com/cheatoskar/horizon-client) and keep its "Legacy Essentials" group switched on (it is on after a new install). Then you do not need the files below.
+
+**By hand:**
+
 1. Close the game.
-2. Download the zip for your game from [Releases](../../releases) (`eswc-autosave-<version>-ESWC.zip`, `-Sunrise.zip` or `-Original.zip`; the old file prefix stays so the TM Horizon launcher finds it) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to the game exe (`TmNationsESWC.exe`, `TmSunrise.exe` or `TMORIGINAL.EXE`).
+2. Download the zip for your game from [Releases](https://github.com/cheatoskar/eswc-autosave/releases/latest) (`eswc-autosave-<version>-ESWC.zip`, `-Sunrise.zip` or `-Original.zip`; the old file prefix stays so the TM Horizon launcher finds it) and copy `dinput8.dll`, `eswc_autosave.dll` and `eswc_autosave.ini` next to the game exe (`TmNationsESWC.exe`, `TmSunrise.exe` or `TMORIGINAL.EXE`).
    - Another mod's `dinput8.dll` already there: rename it to `dinput8.chain.dll` first. The loader passes DirectInput on to it, so that mod keeps working.
    - With the Horizon Client: see [With the Horizon Client](#with-the-horizon-client).
 3. Start the game. `eswc_autosave.log` appears in the game folder and should contain `recognised, sha256 ok` and `ready`. `Ctrl+F2` opens the menu.
@@ -133,17 +182,17 @@ Nothing here sends input, changes physics or touches a race. Autosave calls the 
 
 ## With the Horizon Client
 
-The Horizon Client (its loader `dinput8.dll` + `horizon\host.dll`) has the controller fix, the login fix, game settings and its own menu. Legacy Essentials steps aside for them, so nothing is hooked twice:
+The [Horizon Client](https://github.com/cheatoskar/horizon-client) (its loader `dinput8.dll` + `horizon\host.dll`) has all of Legacy Essentials in its "Legacy Essentials" group (Autosave, Controller fix, Login fix, Game settings), so you need only one of the two. If both are in one game, Legacy Essentials steps aside for the client's controller fix, login fix, game settings and menu, so nothing is hooked twice:
 
 | | Horizon Client present |
 |---|---|
-| Autosave | Legacy Essentials (the client's Autosave module pauses itself when it finds `eswc_autosave.dll`) |
+| Autosave | Legacy Essentials (the client's Autosave module pauses itself when it finds `eswc_autosave.dll`; its log says `standalone ESWC Autosave found (eswc_autosave.dll): module paused`) |
 | Controller fix | the client's module (whoever starts first claims it; the client's module starts first) |
 | Login fix | the client's (`OnlineFix` in the client's settings) |
 | Volume, Music, Window mode | the client's Game settings module (its own saved values); with an older client without that module, Legacy Essentials still puts the ini's values into the game at start |
 | Menu | the client's (`Insert`); Legacy Essentials draws nothing |
 
-Install: rename Legacy Essentials' `dinput8.dll` to `dinput8.chain.dll` and put it next to the client's `dinput8.dll`, with `eswc_autosave.dll` and the ini. The log then says `Horizon Client expected` at start and `Horizon Client runs` on the first message. If the client does not start (Ctrl+Shift held at start), Legacy Essentials runs its login fix and controller fix itself; its menu stays off for that start.
+The client's `Horizon-Install.cmd` does this for you: it keeps a `dinput8.dll` it finds as `dinput8.chain.dll`. By hand: rename Legacy Essentials' `dinput8.dll` to `dinput8.chain.dll` and put it next to the client's `dinput8.dll`, with `eswc_autosave.dll` and the ini. The log then says `Horizon Client expected` at start and `Horizon Client runs` on the first message. If the client does not start (Ctrl+Shift held at start), Legacy Essentials runs its login fix and controller fix itself; its menu stays off for that start.
 
 ## Settings (`eswc_autosave.ini`)
 
@@ -164,6 +213,15 @@ Install: rename Legacy Essentials' `dinput8.dll` to `dinput8.chain.dll` and put 
 ## Status
 
 Version 1.3.1. Autosave on ESWC: tested on Windows 11 (solo, LAN with nostalgic-completionist, online server, login). Sunrise and Original autosave: tested against a fake game image and the real exes on disk; not yet in a real race. Controller fix and login fix: the Horizon Client's code; in the client the controller fix is in test, the login fix is tested on ESWC. The menu: tested on a Direct3D 9 test window (`build\test\menu_test.exe`), not yet in the games. Volume, Music, Window mode: from a study of the three exes, checked against them on disk and against a fake game; not yet in the games.
+
+## Known issues
+
+- **Sunrise and Original:** the autosave, controller fix, login fix (Original), volume and window mode are checked against the exes on disk and a fake game, not yet in a real race. Tell me what happens, with `eswc_autosave.log`.
+- **The menu** is tested on a Direct3D 9 test window, not yet in the games.
+- **Network TimeAttack replays** (ESWC, LAN and online) cannot be re-validated by the game, neither the original nor the TMX copy (see [TMX copy](#tmx-copy-servers-with-other-players-eswc)).
+- **The login fix** uses TLS 1.0 and a certificate that expired in 2020: use a password for your ESWC account that you do not use anywhere else.
+- **TrackMania Sunrise** has no online servers any more.
+- Report bugs in the [issues](https://github.com/cheatoskar/eswc-autosave/issues) with `eswc_autosave.log`.
 
 ## How it works
 
@@ -205,6 +263,14 @@ powershell -ExecutionPolicy Bypass -File tools/sync-horizon.ps1 -SettingsCommit 
 
 See [CHANGELOG.md](CHANGELOG.md).
 
+## Credits
+
+- The login fix, controller fix and game settings are the [Horizon Client's](https://github.com/cheatoskar/horizon-client) code (MIT), vendored in `vendor/horizon/`.
+- [Dear ImGui](https://github.com/ocornut/imgui) by Omar Cornut (MIT) for the menu.
+- Made for [100% TMX](https://tm-exchange.com) runs together with BigBang1112's [nostalgic-completionist](https://github.com/BigBang1112/nostalgic-completionist). The TMX copy follows what the TMX admins accept for TMN-X uploads.
+- Game internals: [trackmania-internals](https://github.com/cheatoskar/trackmania-internals).
+- TrackMania is a trademark of Ubisoft/Nadeo. This project is not affiliated with them and ships no game files.
+
 ## License
 
-MIT. `vendor/horizon/imgui` is Dear ImGui (MIT, see its `LICENSE.txt`).
+MIT ([LICENSE](LICENSE)). `vendor/horizon/imgui` is Dear ImGui (MIT, see its `LICENSE.txt`).
